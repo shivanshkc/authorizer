@@ -1,0 +1,22 @@
+name: Lint
+description: Checks if the Go code is linted correctly.
+
+runs:
+  using: composite
+  steps:
+    # Setting up Go.
+    - name: Setting up Go.
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.17
+
+    # Running golangci-lint.
+    - name: Running golangci-lint.
+      uses: golangci/golangci-lint-action@v3
+      with:
+        version: latest
+        # When this action will run, golangci-lint will pick the local config file.
+        # The local config file has the value of "fix" as "true" (it auto-fixes the code).
+        # But for this CI/CD environment, we don't want to auto-fix the code.
+        # So, we manually pass "fix" as "false" here.
+        args: --fix=false

@@ -1,0 +1,16 @@
+name: Build
+description: Checks if the Go code builds without errors.
+
+runs:
+  using: composite
+  steps:
+    # Setting up Go.
+    - name: Setting up Go.
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.17
+
+    # Running build.
+    - name: Running build.
+      run: go build -v -o bin/main
+      shell: bash
