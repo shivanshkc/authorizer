@@ -18,6 +18,9 @@ var (
 
 // OAuthProvider represents a generic OAuth provider.
 type OAuthProvider interface {
+	// Name provides the name of the provider.
+	Name() string
+
 	// GetRedirectURL returns the URL to the auth page of the provider.
 	GetRedirectURL(ctx context.Context) string
 

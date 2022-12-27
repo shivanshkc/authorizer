@@ -11,6 +11,7 @@ import (
 	"github.com/shivanshkc/authorizer/src/handlers"
 	"github.com/shivanshkc/authorizer/src/logger"
 	"github.com/shivanshkc/authorizer/src/middlewares"
+	"github.com/shivanshkc/authorizer/src/oauth"
 	"github.com/shivanshkc/authorizer/src/utils/httputils"
 
 	"github.com/gorilla/mux"
@@ -20,9 +21,12 @@ func main() {
 	// Prerequisites.
 	ctx, conf := context.Background(), configs.Get()
 
+	// Initiate all oauth providers.
+	googleProvider := oauth.NewGoogleOAuthProvider()
+
 	// Set core dependencies -----------------------------------
 	core.ClientCallbackURL = conf.OAuthGeneral.ClientCallbackURL
-	core.ProviderMap["google"] = nil
+	core.ProviderMap[googleProvider.Name()] = googleProvider
 	core.UserDB = database.NewUserDB()
 	// ---------------------------------------------------------
 
@@ -52,7 +56,7 @@ func handler() http.Handler {
 	router.Use(middlewares.CORS)
 
 	// Sample REST endpoint.
-	router.HandleFunc("/api", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/api", func(w http.ResponseWriter, _ *http.Request) {
 		httputils.Write(w, http.StatusOK, nil, nil)
 	}).Methods(http.MethodOptions, http.MethodGet)
 

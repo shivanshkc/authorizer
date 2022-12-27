@@ -9,7 +9,10 @@ require (
 	github.com/spf13/viper v1.13.0
 )
 
-require go.mongodb.org/mongo-driver v1.11.1
+require (
+	github.com/golang-jwt/jwt/v4 v4.4.3
+	go.mongodb.org/mongo-driver v1.11.1
+)
 
 require (
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
