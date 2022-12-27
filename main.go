@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/shivanshkc/authorizer/src/configs"
+	"github.com/shivanshkc/authorizer/src/handlers"
 	"github.com/shivanshkc/authorizer/src/logger"
 	"github.com/shivanshkc/authorizer/src/middlewares"
 	"github.com/shivanshkc/authorizer/src/utils/httputils"
@@ -42,10 +43,20 @@ func handler() http.Handler {
 	router.Use(middlewares.AccessLogger)
 	router.Use(middlewares.CORS)
 
-	// REST API.
+	// Sample REST endpoint.
 	router.HandleFunc("/api", func(w http.ResponseWriter, r *http.Request) {
 		httputils.Write(w, http.StatusOK, nil, nil)
-	}).Methods(http.MethodGet)
+	}).Methods(http.MethodOptions, http.MethodGet)
+
+	// Auth endpoints.
+	router.HandleFunc("/api/auth/{provider}", handlers.AuthRedirectHandler).
+		Methods(http.MethodOptions, http.MethodGet)
+	router.HandleFunc("/api/auth/{provider}/callback", handlers.AuthCallbackHandler).
+		Methods(http.MethodOptions, http.MethodGet)
+
+	// User endpoints.
+	router.HandleFunc("/api/user/{user_id}", handlers.GetUserHandler).
+		Methods(http.MethodOptions, http.MethodGet)
 
 	return router
 }
