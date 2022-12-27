@@ -38,7 +38,7 @@ func OAuthCallback(ctx context.Context, provider string, code string, writer htt
 	go func() {
 		// User ID is nothing but the SHA of their email.
 		userInfo.ID = sha256Hex(userInfo.Email)
-		_ = UserDB.InsertUser(ctx, userInfo)
+		_ = UserDB.SetUser(ctx, userInfo)
 	}()
 
 	// Success redirect URL.

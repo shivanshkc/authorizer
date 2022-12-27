@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/shivanshkc/authorizer/src/configs"
+	"github.com/shivanshkc/authorizer/src/core"
+	"github.com/shivanshkc/authorizer/src/database"
 	"github.com/shivanshkc/authorizer/src/handlers"
 	"github.com/shivanshkc/authorizer/src/logger"
 	"github.com/shivanshkc/authorizer/src/middlewares"
@@ -17,6 +19,12 @@ import (
 func main() {
 	// Prerequisites.
 	ctx, conf := context.Background(), configs.Get()
+
+	// Set core dependencies -----------------------------------
+	core.ClientCallbackURL = conf.OAuthGeneral.ClientCallbackURL
+	core.ProviderMap["google"] = nil
+	core.UserDB = database.NewUserDB()
+	// ---------------------------------------------------------
 
 	// Creating the HTTP server.
 	server := &http.Server{

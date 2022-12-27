@@ -30,9 +30,9 @@ type OAuthProvider interface {
 
 // UserDatabase represents the database layer for user information.
 type UserDatabase interface {
+	// SetUser upserts the user's info in the database.
+	SetUser(ctx context.Context, doc *UserDoc) error
+
 	// GetUserInfo fetches the user info for the provided userID.
 	GetUser(ctx context.Context, userID string) (*UserDoc, error)
-
-	// InsertUser inserts the user's info in the database.
-	InsertUser(ctx context.Context, doc *UserDoc) error
 }

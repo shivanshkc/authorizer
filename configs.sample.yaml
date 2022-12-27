@@ -4,3 +4,12 @@ application:
 
 http_server:
   addr: 0.0.0.0:8080
+
+mongo:
+  addr: mongodb://dev:dev@localhost:27017/?retryWrites=true&w=majority
+  database_name: general_db
+  operation_timeout_sec: 60
+
+oauth_general:
+  client_callback_url: "http://localhost:4200/auth/callback"
+  server_callback_url: "http://localhost:8080"
