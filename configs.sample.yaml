@@ -4,3 +4,19 @@ application:
 
 http_server:
   addr: 0.0.0.0:8080
+
+mongo:
+  addr: mongodb://dev:dev@localhost:27017/?retryWrites=true&w=majority
+  database_name: general_db
+  operation_timeout_sec: 60
+
+oauth_general:
+  client_callback_url: "http://localhost:4200/auth/callback"
+  server_callback_url: "http://localhost:8080"
+
+oauth_google:
+  redirect_url: "https://accounts.google.com/o/oauth2/v2/auth"
+  scopes: "https://www.googleapis.com/auth/userinfo.email+https://www.googleapis.com/auth/userinfo.profile"
+  client_id: ""
+  client_secret: ""
+  token_endpoint: "https://oauth2.googleapis.com/token"
