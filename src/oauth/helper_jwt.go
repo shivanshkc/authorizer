@@ -9,8 +9,8 @@ import (
 // jwtParser is used by the JWT functions in this file.
 var jwtParser = jwt.Parser{SkipClaimsValidation: true}
 
-// jwtDecodeUnsafe decodes the JWT without validating it and without verifying the sign.
-func jwtDecodeUnsafe(token string, target jwt.Claims) error {
+// JWTDecodeUnsafe decodes the JWT without validating it and without verifying the sign.
+func JWTDecodeUnsafe(token string, target jwt.Claims) error {
 	// Parse the token to get the claims.
 	if _, _, err := jwtParser.ParseUnverified(token, target); err != nil {
 		return fmt.Errorf("error in jwtParser.ParseUnverified call: %w", err)

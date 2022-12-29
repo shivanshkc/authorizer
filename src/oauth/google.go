@@ -97,8 +97,8 @@ func (g *GoogleOAuthProvider) Code2Token(ctx context.Context, code string) (stri
 
 func (g *GoogleOAuthProvider) Token2UserInfo(ctx context.Context, token string) (*core.UserDoc, error) {
 	// Decode claims.
-	claims := &googleClaims{}
-	if err := jwtDecodeUnsafe(token, claims); err != nil {
+	claims := &GoogleClaims{}
+	if err := JWTDecodeUnsafe(token, claims); err != nil {
 		return nil, fmt.Errorf("error in jwtDecodeUnsafe call: %w", err)
 	}
 

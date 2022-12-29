@@ -60,14 +60,22 @@ func handler() http.Handler {
 		httputils.Write(w, http.StatusOK, nil, nil)
 	}).Methods(http.MethodOptions, http.MethodGet)
 
+	// Router for auth routes.
+	authRouter := router.PathPrefix("/api/auth").Subrouter()
+	// Router for user routes.
+	userRouter := router.PathPrefix("/api/user").Subrouter()
+
 	// Auth endpoints.
-	router.HandleFunc("/api/auth/{provider}", handlers.AuthRedirectHandler).
+	authRouter.HandleFunc("/{provider}", handlers.AuthRedirectHandler).
 		Methods(http.MethodOptions, http.MethodGet)
-	router.HandleFunc("/api/auth/{provider}/callback", handlers.AuthCallbackHandler).
+	authRouter.HandleFunc("/{provider}/callback", handlers.AuthCallbackHandler).
 		Methods(http.MethodOptions, http.MethodGet)
 
+	// User routes require JWT authentication.
+	userRouter.Use(middlewares.JWTAuth)
+
 	// User endpoints.
-	router.HandleFunc("/api/user/{user_id}", handlers.GetUserHandler).
+	userRouter.HandleFunc("/{user_id}", handlers.GetUserHandler).
 		Methods(http.MethodOptions, http.MethodGet)
 
 	return router
