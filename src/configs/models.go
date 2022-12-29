@@ -44,5 +44,5 @@ type Model struct {
 		ClientSecret string `yaml:"client_secret"`
 		// TokenEndpoint is Google's endpoint to exchange OAuth-code with ID token.
 		TokenEndpoint string `yaml:"token_endpoint"`
-	}
+	} `yaml:"oauth_google"`
 }

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/shivanshkc/authorizer/src/logger"
 	"github.com/shivanshkc/authorizer/src/utils/httputils"
 )
 
@@ -38,7 +39,10 @@ func OAuthCallback(ctx context.Context, provider string, code string, writer htt
 	go func() {
 		// User ID is nothing but the SHA of their email.
 		userInfo.ID = sha256Hex(userInfo.Email)
-		_ = UserDB.SetUser(ctx, userInfo)
+		//nolint:contextcheck // This should not inherit the context.
+		if err := UserDB.SetUser(context.Background(), userInfo); err != nil {
+			logger.Error(ctx, "error in UserDB.SetUser call: %+v", err)
+		}
 	}()
 
 	// Success redirect URL.
