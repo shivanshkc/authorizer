@@ -72,7 +72,8 @@ func handler() http.Handler {
 		Methods(http.MethodOptions, http.MethodGet)
 
 	// User routes require JWT authentication.
-	userRouter.Use(middlewares.JWTAuth)
+	// TODO: Enable this middleware!
+	// userRouter.Use(middlewares.JWTAuth)
 
 	// User endpoints.
 	userRouter.HandleFunc("/{user_id}", handlers.GetUserHandler).
