@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/shivanshkc/authorizer/compare/v1.0.0...v1.1.0) (2022-12-30)
+
+
+### Features
+
+* **core:** get user by ID api does not use auth ([13d0e01](https://github.com/shivanshkc/authorizer/commit/13d0e0164bdc4f215adf9064ceec54c375acf1d1))
+
 # 1.0.0 (2022-12-29)
 
 
