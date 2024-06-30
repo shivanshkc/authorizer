@@ -1,0 +1,11 @@
+---
+application:
+  name: authorizer
+  pprof: true
+
+http_server:
+  addr: localhost:8080
+
+logger:
+  level: debug
+  pretty: true
