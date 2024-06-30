@@ -12,25 +12,25 @@ import (
 )
 
 // OAuthCallback handles the callback received from the provider.
-func OAuthCallback(ctx context.Context, provider string, code string, writer http.ResponseWriter) error {
+func OAuthCallback(ctx context.Context, provider, code, uri string, writer http.ResponseWriter) error {
 	// Obtain the required provider from the map.
 	oAuthProvider, exists := ProviderMap[provider]
 	if !exists {
-		errorRedirect(writer, ErrProviderNotFound, http.StatusNotFound)
+		errorRedirect(writer, ErrProviderNotFound, http.StatusNotFound, uri)
 		return nil
 	}
 
 	// Convert OAuth code to identity token.
 	token, err := oAuthProvider.Code2Token(ctx, code)
 	if err != nil {
-		errorRedirect(writer, err, http.StatusInternalServerError)
+		errorRedirect(writer, err, http.StatusInternalServerError, uri)
 		return nil
 	}
 
 	// Obtain user's information from the token.
 	userInfo, err := oAuthProvider.Token2UserInfo(ctx, token)
 	if err != nil {
-		errorRedirect(writer, err, http.StatusInternalServerError)
+		errorRedirect(writer, err, http.StatusInternalServerError, uri)
 		return nil
 	}
 
@@ -46,7 +46,7 @@ func OAuthCallback(ctx context.Context, provider string, code string, writer htt
 	}()
 
 	// Success redirect URL.
-	redirectURL := fmt.Sprintf("%s?id_token=%s&provider=%s", ClientCallbackURL, token, provider)
+	redirectURL := fmt.Sprintf("%s?id_token=%s&provider=%s", uri, token, provider)
 	headers := map[string]string{"Location": redirectURL}
 	httputils.Write(writer, http.StatusFound, headers, nil)
 
@@ -54,8 +54,8 @@ func OAuthCallback(ctx context.Context, provider string, code string, writer htt
 }
 
 // errorRedirect redirects the client in case of an error.
-func errorRedirect(writer http.ResponseWriter, err error, status int) {
-	redirectURL := fmt.Sprintf("%s?error=%s", ClientCallbackURL, err.Error())
+func errorRedirect(writer http.ResponseWriter, err error, status int, uri string) {
+	redirectURL := fmt.Sprintf("%s?error=%s", uri, err.Error())
 	headers := map[string]string{"Location": redirectURL}
 	httputils.Write(writer, status, headers, nil)
 }

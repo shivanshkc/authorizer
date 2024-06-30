@@ -26,8 +26,6 @@ type Model struct {
 
 	// OAuthGeneral holds the general OAuth configs.
 	OAuthGeneral struct {
-		// ClientCallbackURL is where the frontend will receive the OAuth result.
-		ClientCallbackURL string `yaml:"client_callback_url"`
 		// ServerCallbackURL is where the service receives oauth callbacks from providers.
 		ServerCallbackURL string `yaml:"server_callback_url"`
 	} `yaml:"oauth_general"`

@@ -25,7 +25,6 @@ func main() {
 	googleProvider := oauth.NewGoogleOAuthProvider()
 
 	// Set core dependencies -----------------------------------
-	core.ClientCallbackURL = conf.OAuthGeneral.ClientCallbackURL
 	core.ProviderMap[googleProvider.Name()] = googleProvider
 	core.UserDB = database.NewUserDB()
 	// ---------------------------------------------------------

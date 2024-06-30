@@ -6,12 +6,8 @@ import (
 
 // Dependencies of the core.
 var (
-	// ClientCallbackURL is where the frontend will receive the OAuth result.
-	ClientCallbackURL string
-
 	// ProviderMap maps provider names to their OAuthProvider implementation.
 	ProviderMap = map[string]OAuthProvider{}
-
 	// UserDB is required to get user data from the database.
 	UserDB UserDatabase
 )
@@ -22,7 +18,10 @@ type OAuthProvider interface {
 	Name() string
 
 	// GetRedirectURL returns the URL to the auth page of the provider.
-	GetRedirectURL(ctx context.Context) string
+	//
+	// The "state" parameter is returned as is in the provider's callback
+	// and can be used to correlate it with the original redirect.
+	GetRedirectURL(ctx context.Context, state string) string
 
 	// Code2Token converts the auth code to identity token.
 	Code2Token(ctx context.Context, code string) (string, error)

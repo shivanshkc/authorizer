@@ -1,6 +1,9 @@
 # Compiled output
 bin
 
+# Configs
+configs.yaml
+
 # IDE Metadata
 .idea
 .vscode

@@ -27,16 +27,17 @@ func (g *GoogleOAuthProvider) Name() string {
 	return "google"
 }
 
-func (g *GoogleOAuthProvider) GetRedirectURL(ctx context.Context) string {
+func (g *GoogleOAuthProvider) GetRedirectURL(ctx context.Context, state string) string {
 	// Prerequisites.
 	conf := configs.Get()
 
 	return fmt.Sprintf(
-		"%s?scope=%s&include_granted_scopes=true&response_type=code&redirect_uri=%s&client_id=%s",
+		"%s?scope=%s&include_granted_scopes=true&response_type=code&redirect_uri=%s&client_id=%s&state=%s",
 		conf.OAuthGoogle.RedirectURL,
 		conf.OAuthGoogle.Scopes,
 		fmt.Sprintf("%s/api/auth/%s/callback", conf.OAuthGeneral.ServerCallbackURL, g.Name()),
 		conf.OAuthGoogle.ClientID,
+		state,
 	)
 }
 
