@@ -1,16 +1,21 @@
 name: Build
 description: Checks if the Go code builds without errors.
 
+inputs:
+  application-name:
+    description: Name of the application to build.
+    required: true
+
 runs:
   using: composite
   steps:
     # Setting up Go.
     - name: Setting up Go.
-      uses: actions/setup-go@v3
+      uses: actions/setup-go@v5
       with:
-        go-version: 1.17
+        go-version: 1.22
 
     # Running build.
     - name: Running build.
-      run: go build -v -o bin/main
+      run: go build cmd/${{ inputs.application-name }}/main.go
       shell: bash

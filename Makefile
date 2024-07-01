@@ -2,28 +2,21 @@ SHELL=/usr/bin/env bash
 
 # Project specific properties.
 application_name        = authorizer
-application_binary_name = main
+application_binary_name = authorizer
+application_addr        = http://localhost:8080
 
-# Docker specific properties.
+# Container specific properties.
 application_image_name     = authorizer
 application_container_name = authorizer-1
 
-# For ProtoBuf code generation.
-proto_path=src/proto/*.proto
 
 # Builds the project.
 build:
 	@echo "+$@"
-	@go build -o bin/$(application_binary_name)
+	@go build -o bin/$(application_binary_name) cmd/$(application_name)/main.go
 
 # Runs the project after linting and building it anew.
-run: tidy lint build
-	@echo "+$@"
-	@echo "########### Running the application binary ############"
-	@bin/$(application_binary_name)
-
-# Runs the project.
-run-only:
+run: tidy build
 	@echo "+$@"
 	@echo "########### Running the application binary ############"
 	@bin/$(application_binary_name)
@@ -41,12 +34,12 @@ tidy:
 # Runs golang-ci-lint over the project.
 lint:
 	@echo "+$@"
-	@golangci-lint run
+	@golangci-lint run ./...
 
 # Builds the docker image for the project.
 image:
 	@echo "+$@"
-	@docker build --tag $(application_image_name):latest .
+	@docker build --network host --file Containerfile --tag $(application_image_name):latest .
 
 # Runs the project container assuming the image is already built.
 container:
@@ -56,15 +49,33 @@ container:
 
 	@echo "################ Running new container ################"
 	@docker run --name $(application_container_name) --detach --net host --restart unless-stopped \
-		--volume /etc/$(application_name)/configs.yaml:/etc/$(application_name)/configs.yaml \
+		--volume $(PWD)/configs/configs.yaml:/etc/$(application_name)/configs.yaml \
 		$(application_image_name):latest
 
-# Generates code using the found protocol buffer files.
-proto:
+# Shows the goroutine block profiling data.
+blockprof:
 	@echo "+$@"
-	@protoc \
-		--go_out=. \
-		--go_opt=paths=source_relative \
-		--go-grpc_out=. \
-		--go-grpc_opt=paths=source_relative \
-		$(proto_path)
+	@mkdir pprof || true
+	@curl $(application_addr)/debug/pprof/block > pprof/block.prof && \
+		go tool pprof --text bin/$(application_binary_name) pprof/block.prof
+
+# Shows the mutex usage data.
+mutexprof:
+	@echo "+$@"
+	@mkdir pprof || true
+	@curl $(application_addr)/debug/pprof/mutex > pprof/mutex.prof && \
+		go tool pprof --text bin/$(application_binary_name) pprof/mutex.prof
+
+# Shows the heap allocation data.
+heapprof:
+	@echo "+$@"
+	@mkdir pprof || true
+	@curl $(application_addr)/debug/pprof/heap > pprof/heap.prof && \
+		go tool pprof --text bin/$(application_binary_name) pprof/heap.prof
+
+# Shows execution time per function.
+prof:
+	@echo "+$@"
+	@mkdir pprof || true
+	@curl $(application_addr)/debug/pprof/profile?seconds=30 > pprof/profile.prof && \
+		go tool pprof --text bin/$(application_binary_name) pprof/profile.prof

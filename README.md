@@ -1,3 +1,5 @@
 # Authorizer
 
-A dead simple authorization service that uses OAuth. 
+## Introduction
+
+Authorizer is a dead simple authentication and authorization service based on OAuth.

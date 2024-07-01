@@ -11,15 +11,12 @@ docs
 # CI/CD files.
 .github
 
-# Configuration files.
-configs.yaml
-
 # IDE Metadata
 .idea
 .vscode
 
-# Secrets
-keys
+# Configs
+configs
 
 # Logs
 logs

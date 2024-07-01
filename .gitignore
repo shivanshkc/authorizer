@@ -5,8 +5,11 @@ bin
 .idea
 .vscode
 
-# Secrets
-keys
+# Configs
+configs/configs.yaml
+
+# Profiling data
+pprof
 
 # Logs
 logs
