@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/shivanshkc/authorizer/pkg/config"
+	"github.com/shivanshkc/authorizer/pkg/utils/errutils"
 )
 
 // usersCollectionName is the name of the collection that holds user records.
@@ -78,7 +80,24 @@ func (u *UserDB) SetUser(ctx context.Context, userDoc UserDoc) error {
 
 // GetUser gets a user from the database.
 func (u *UserDB) GetUser(ctx context.Context, userID primitive.ObjectID) (UserDoc, error) {
-	return UserDoc{}, nil
+	// Run query.
+	result := u.collection.FindOne(ctx, bson.M{"_id": userID})
+	if err := result.Err(); err != nil {
+		// Handle 404.
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return UserDoc{}, errutils.NotFound()
+		}
+		// Unexpected error.
+		return UserDoc{}, fmt.Errorf("error in FindOne call: %w", err)
+	}
+
+	// Decode result.
+	var userDoc UserDoc
+	if err := result.Decode(&userDoc); err != nil {
+		return UserDoc{}, fmt.Errorf("failed to decode user doc: %w", err)
+	}
+
+	return userDoc, nil
 }
 
 // CreateIndices creates all required database indices.

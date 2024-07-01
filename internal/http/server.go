@@ -67,7 +67,9 @@ func (s *Server) getHandler() http.Handler {
 	// Callback route.
 	router.HandleFunc("/api/auth/{provider}/callback", s.Handler.Callback).Methods(http.MethodGet)
 
-	// More API routes here...
+	// Get user route.
+	// TODO: Protect this route. For now, the only protection is that you need an ID to actually get info.
+	router.HandleFunc("/api/users/{id}", s.Handler.GetUser).Methods(http.MethodGet)
 
 	// Enable profiling if configured.
 	if s.Config.Application.PProf {

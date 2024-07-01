@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"runtime/debug"
 
 	"github.com/shivanshkc/authorizer/pkg/utils/httputils"
 )
@@ -16,29 +17,32 @@ type Middleware struct{}
 
 func (m Middleware) Recovery(next http.Handler) http.Handler {
 	return hFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer recoverer(w, r)
+		defer func() {
+			// Recover the panic.
+			errAny := recover()
+			if errAny == nil {
+				return
+			}
+
+			// Stack for debugging.
+			stack := string(debug.Stack())
+			// Log.
+			slog.ErrorContext(r.Context(), "panic occurred during request execution",
+				"err", errAny, "stack", stack)
+
+			// Convert to error for handling.
+			err, ok := errAny.(error)
+			if !ok {
+				err = fmt.Errorf("unexpected error: %v", errAny)
+			}
+
+			// Response.
+			httputils.WriteErr(w, err)
+		}()
+
 		// Next middleware or handler.
 		next.ServeHTTP(w, r)
 	})
-}
-
-// recoverer is supposed to be called with a defer statement to recover a panic.
-func recoverer(w http.ResponseWriter, r *http.Request) {
-	// Recover the panic.
-	errAny := recover()
-	if errAny == nil {
-		return
-	}
-
-	slog.ErrorContext(r.Context(), "panic occurred during request execution", "err", errAny)
-	// Convert to error for handling.
-	err, ok := errAny.(error)
-	if !ok {
-		err = fmt.Errorf("unexpected error: %v", errAny)
-	}
-
-	// Response.
-	httputils.WriteErr(w, err)
 }
 
 // CORS middlewares handled the CORS issues.
