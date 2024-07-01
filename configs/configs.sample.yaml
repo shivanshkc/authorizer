@@ -2,10 +2,18 @@
 application:
   name: authorizer
   pprof: true
+  public_addr: http://localhost:8080
 
 http_server:
   addr: localhost:8080
 
 logger:
   level: debug
-  pretty: true
+  pretty: false
+
+oauth_google:
+  redirect_uri: "https://accounts.google.com/o/oauth2/v2/auth"
+  scopes: "https://www.googleapis.com/auth/userinfo.email+https://www.googleapis.com/auth/userinfo.profile"
+  client_id: ""
+  client_secret: ""
+  token_endpoint: "https://oauth2.googleapis.com/token"

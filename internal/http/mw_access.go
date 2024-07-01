@@ -11,7 +11,7 @@ import (
 )
 
 // AccessLogger middleware handles access logging.
-func (m *Middleware) AccessLogger(next http.Handler) http.Handler {
+func (m Middleware) AccessLogger(next http.Handler) http.Handler {
 	return hFunc(func(w http.ResponseWriter, r *http.Request) {
 		// This will be used to calculate the total request execution time.
 		start := time.Now()

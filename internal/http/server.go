@@ -12,6 +12,7 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"github.com/shivanshkc/authorizer/internal/handlers"
 	"github.com/shivanshkc/authorizer/pkg/config"
 	"github.com/shivanshkc/authorizer/pkg/utils/errutils"
 	"github.com/shivanshkc/authorizer/pkg/utils/httputils"
@@ -20,8 +21,9 @@ import (
 
 // Server is the HTTP server of this application.
 type Server struct {
-	Config     *config.Config
-	Middleware *Middleware
+	Config     config.Config
+	Middleware Middleware
+	Handler    handlers.Handler
 	httpServer *http.Server
 }
 
@@ -60,11 +62,10 @@ func (s *Server) getHandler() http.Handler {
 	router.Use(s.Middleware.CORS)
 	router.Use(s.Middleware.AccessLogger)
 
-	// Sample REST method.
-	router.HandleFunc("/api", func(w http.ResponseWriter, r *http.Request) {
-		slog.InfoContext(r.Context(), "hello world")
-		httputils.Write(w, http.StatusOK, nil, map[string]any{"code": "OK"})
-	}).Methods(http.MethodGet)
+	// Redirect route.
+	router.HandleFunc("/api/auth/{provider}", s.Handler.Redirect).Methods(http.MethodGet)
+	// Callback route.
+	router.HandleFunc("/api/auth/{provider}/callback", s.Handler.Callback).Methods(http.MethodGet)
 
 	// More API routes here...
 

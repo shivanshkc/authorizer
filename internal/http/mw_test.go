@@ -88,9 +88,9 @@ func TestMiddleware_CORS(t *testing.T) {
 
 // middlewareWithMockLogger returns a middleware instance that uses a mock logger.
 // The provided writer is used as the underlying io.Writer for the logger instance.
-func middlewareWithMockLogger(writer io.Writer) *Middleware {
+func middlewareWithMockLogger(writer io.Writer) Middleware {
 	// Setup basic dependencies.
 	conf := config.LoadMock()
 	logger.Init(writer, conf.Logger.Level, conf.Logger.Pretty)
-	return &Middleware{}
+	return Middleware{}
 }

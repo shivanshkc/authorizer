@@ -85,7 +85,7 @@ func mockServerStart() *Server {
 	// Instantiate the server to be tested.
 	server := &Server{
 		Config:     conf,
-		Middleware: &Middleware{},
+		Middleware: Middleware{},
 	}
 
 	// Start the server without blocking.

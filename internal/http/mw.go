@@ -14,7 +14,7 @@ type hFunc = http.HandlerFunc
 // Middleware implements all the REST middleware methods.
 type Middleware struct{}
 
-func (m *Middleware) Recovery(next http.Handler) http.Handler {
+func (m Middleware) Recovery(next http.Handler) http.Handler {
 	return hFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer recoverer(w, r)
 		// Next middleware or handler.
@@ -42,7 +42,7 @@ func recoverer(w http.ResponseWriter, r *http.Request) {
 }
 
 // CORS middlewares handled the CORS issues.
-func (m *Middleware) CORS(next http.Handler) http.Handler {
+func (m Middleware) CORS(next http.Handler) http.Handler {
 	return hFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Headers", "*")
