@@ -18,7 +18,7 @@ var errMissingRedirectURI = errutils.BadRequest().WithReasonStr("redirect_uri is
 var errUnsupportedProvider = errutils.BadRequest().WithReasonStr("provider is not supported")
 
 // Redirect takes the user to the provider's authentication page.
-func (h Handler) Redirect(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Redirect(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	// Provider is a path parameter, and so, it will always be present.

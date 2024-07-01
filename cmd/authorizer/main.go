@@ -19,7 +19,7 @@ func main() {
 	googleProvider := oauth.NewGoogleProvider(conf)
 
 	// Instantiate the API handlers.
-	handler := handlers.Handler{
+	handler := &handlers.Handler{
 		Providers: map[string]oauth.Provider{
 			googleProvider.Name(): googleProvider,
 			// More providers here...

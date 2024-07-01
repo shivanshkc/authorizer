@@ -42,6 +42,6 @@ func (g *GoogleProvider) TokenFromCode(ctx context.Context, code string) (string
 	panic("implement me")
 }
 
-func (g *GoogleProvider) UserFromToken(ctx context.Context, token string) (*database.UserDoc, error) {
+func (g *GoogleProvider) UserFromToken(ctx context.Context, token string) (database.UserDoc, error) {
 	panic("implement me")
 }

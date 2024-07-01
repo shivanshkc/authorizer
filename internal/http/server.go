@@ -23,7 +23,7 @@ import (
 type Server struct {
 	Config     config.Config
 	Middleware Middleware
-	Handler    handlers.Handler
+	Handler    *handlers.Handler
 	httpServer *http.Server
 }
 

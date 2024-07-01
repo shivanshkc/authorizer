@@ -21,5 +21,5 @@ type Provider interface {
 	TokenFromCode(ctx context.Context, code string) (string, error)
 
 	// UserFromToken converts the identity token into the user's info.
-	UserFromToken(ctx context.Context, token string) (*database.UserDoc, error)
+	UserFromToken(ctx context.Context, token string) (database.UserDoc, error)
 }
