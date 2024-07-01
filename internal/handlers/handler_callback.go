@@ -51,7 +51,7 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Save the logged-in user's info in the database.
-	go fetchAndSaveUser(context.Background(), provider, accessToken, nil)
+	go fetchAndSaveUser(context.Background(), provider, accessToken, h.UserDB)
 
 	// Success redirect URL.
 	redirectURL := fmt.Sprintf("%s?id_token=%s&provider=%s", clientCallbackURI, accessToken, providerName)

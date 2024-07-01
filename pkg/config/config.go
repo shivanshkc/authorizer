@@ -26,6 +26,14 @@ type Config struct {
 		Pretty bool `yaml:"pretty"`
 	} `yaml:"logger"`
 
+	// Mongo is the model of the MongoDB configs.
+	Mongo struct {
+		// Addr of the MongoDB deployment.
+		Addr string `yaml:"addr"`
+		// DatabaseName is the name of the logical database in MongoDB.
+		DatabaseName string `yaml:"database_name"`
+	} `yaml:"mongo"`
+
 	// OAuthGoogle holds Google's oauth configs.
 	OAuthGoogle struct {
 		// RedirectURI is the URL of Google's authentication page.
