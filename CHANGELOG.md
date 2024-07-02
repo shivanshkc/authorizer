@@ -1,3 +1,10 @@
+## [2.0.1](https://github.com/shivanshkc/authorizer/compare/v2.0.0...v2.0.1) (2024-07-02)
+
+
+### Bug Fixes
+
+* **ci:** allow deployment ([050cffd](https://github.com/shivanshkc/authorizer/commit/050cffd639885af02c04b06f04fb0786fba890ff))
+
 # [2.0.0](https://github.com/shivanshkc/authorizer/compare/v1.1.0...v2.0.0) (2024-07-01)
 
 
