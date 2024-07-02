@@ -1,3 +1,10 @@
+## [2.0.2](https://github.com/shivanshkc/authorizer/compare/v2.0.1...v2.0.2) (2024-07-02)
+
+
+### Bug Fixes
+
+* **ci:** Makefile supports both docker and podman ([d63d13f](https://github.com/shivanshkc/authorizer/commit/d63d13f57701b799b1a982d547dc1d6ea0134bda))
+
 ## [2.0.1](https://github.com/shivanshkc/authorizer/compare/v2.0.0...v2.0.1) (2024-07-02)
 
 
