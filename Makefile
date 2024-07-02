@@ -9,6 +9,8 @@ application_addr        = http://localhost:8080
 application_image_name     = authorizer
 application_container_name = authorizer-1
 
+# Support both podman and docker.
+DOCKER=$(shell which podman || which docker || echo 'docker')
 
 # Builds the project.
 build:
@@ -39,16 +41,16 @@ lint:
 # Builds the docker image for the project.
 image:
 	@echo "+$@"
-	@docker build --network host --file Containerfile --tag $(application_image_name):latest .
+	@$(DOCKER) build --network host --file Containerfile --tag $(application_image_name):latest .
 
 # Runs the project container assuming the image is already built.
 container:
 	@echo "+$@"
 	@echo "############### Removing old container ################"
-	@docker rm -f $(application_container_name)
+	@$(DOCKER) rm -f $(application_container_name)
 
 	@echo "################ Running new container ################"
-	@docker run --name $(application_container_name) --detach --net host --restart unless-stopped \
+	@$(DOCKER) run --name $(application_container_name) --detach --net host --restart unless-stopped \
 		--volume $(PWD)/configs/configs.yaml:/etc/$(application_name)/configs.yaml \
 		$(application_image_name):latest
 
