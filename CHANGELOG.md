@@ -1,3 +1,16 @@
+# [2.1.0](https://github.com/shivanshkc/authorizer/compare/v2.0.2...v2.1.0) (2024-07-02)
+
+
+### Bug Fixes
+
+* **core:** disconnect from database upon interruption ([703ded4](https://github.com/shivanshkc/authorizer/commit/703ded482cb11eba206e568ea6af3e8e2f1c453c))
+* **docs:** add deployment docs and api docs [skip ci] ([fa2e004](https://github.com/shivanshkc/authorizer/commit/fa2e00445c6d137ab03c3f417f3474b4d16ff572))
+
+
+### Features
+
+* **ci:** add a redirect uri allow list ([4c50e07](https://github.com/shivanshkc/authorizer/commit/4c50e07f39272477964b31094c0ae2d674a79d6d))
+
 ## [2.0.2](https://github.com/shivanshkc/authorizer/compare/v2.0.1...v2.0.2) (2024-07-02)
 
 
