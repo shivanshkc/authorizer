@@ -2,8 +2,6 @@ package oauth
 
 import (
 	"context"
-
-	"github.com/shivanshkc/authorizer/internal/database"
 )
 
 // Provider represents an OAuth provider.
@@ -20,6 +18,6 @@ type Provider interface {
 	// TokenFromCode converts the auth code to identity token.
 	TokenFromCode(ctx context.Context, code string) (string, error)
 
-	// UserFromToken converts the identity token into the user's info.
-	UserFromToken(ctx context.Context, token string) (database.UserDoc, error)
+	// ValidateToken validates the token claims and signature and returns the claims.
+	ValidateToken(ctx context.Context, token string) (GoogleClaims, error)
 }

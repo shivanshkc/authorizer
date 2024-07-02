@@ -21,8 +21,9 @@ oauth_general:
     - https://google.com
 
 oauth_google:
-  redirect_uri: "https://accounts.google.com/o/oauth2/v2/auth"
-  scopes: "https://www.googleapis.com/auth/userinfo.email+https://www.googleapis.com/auth/userinfo.profile"
-  client_id: ""
-  client_secret: ""
-  token_endpoint: "https://oauth2.googleapis.com/token"
+  redirect_uri: https://accounts.google.com/o/oauth2/v2/auth
+  scopes: https://www.googleapis.com/auth/userinfo.email+https://www.googleapis.com/auth/userinfo.profile
+  client_id:
+  client_secret:
+  token_endpoint: https://oauth2.googleapis.com/token
+  jwks_uri: https://www.googleapis.com/oauth2/v3/certs
