@@ -8,8 +8,6 @@ type Config struct {
 		Name string `yaml:"name"`
 		// PProf is a flag to enable/disable profiling.
 		PProf bool `yaml:"pprof"`
-		// PublicAddr is the public address of the application, example: https://application.com
-		PublicAddr string `yaml:"public_addr"`
 	} `yaml:"application"`
 
 	// HTTPServer is the model of the HTTP Server configs.
@@ -34,7 +32,15 @@ type Config struct {
 		DatabaseName string `yaml:"database_name"`
 	} `yaml:"mongo"`
 
-	// OAuthGoogle holds Google's oauth configs.
+	// OAuthGeneral holds general oauth configs.
+	OAuthGeneral struct {
+		// ServerRedirectURI is the address of the application for provider's callback.
+		ServerRedirectURI string `yaml:"server_redirect_uri"`
+		// AllowedClientRedirectURIs is the list of allowed client redirect URIs.
+		AllowedClientRedirectURIs []string `yaml:"allowed_client_redirect_uris"`
+	} `yaml:"oauth_general"`
+
+	// OAuthGoogle holds Google specific oauth configs.
 	OAuthGoogle struct {
 		// RedirectURI is the URL of Google's authentication page.
 		RedirectURI string `yaml:"redirect_uri"`

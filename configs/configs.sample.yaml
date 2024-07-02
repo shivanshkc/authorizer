@@ -2,7 +2,6 @@
 application:
   name: authorizer
   pprof: true
-  public_addr: http://localhost:8080
 
 http_server:
   addr: localhost:8080
@@ -14,6 +13,12 @@ logger:
 mongo:
   addr: mongodb://dev:dev@localhost:27017/?retryWrites=true&w=majority
   database_name: commondb
+
+oauth_general:
+  server_redirect_uri: http://localhost:8080
+  allowed_client_redirect_uris:
+    - https://localhost:8080
+    - https://google.com
 
 oauth_google:
   redirect_uri: "https://accounts.google.com/o/oauth2/v2/auth"

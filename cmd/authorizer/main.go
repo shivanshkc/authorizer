@@ -43,6 +43,7 @@ func main() {
 
 	// Instantiate the API handlers.
 	handler := &handlers.Handler{
+		Config:    conf,
 		UserDB:    userDB,
 		Providers: map[string]oauth.Provider{googleProvider.Name(): googleProvider},
 	}
