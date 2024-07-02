@@ -13,7 +13,7 @@ logger:
 
 mongo:
   addr: mongodb://dev:dev@localhost:27017/?retryWrites=true&w=majority
-  database_name: general_db
+  database_name: commondb
 
 oauth_google:
   redirect_uri: "https://accounts.google.com/o/oauth2/v2/auth"

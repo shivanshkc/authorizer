@@ -35,13 +35,13 @@ runs:
   steps:
     # Authenticating with Google Cloud.
     - name: Authenticating with Google Cloud.
-      uses: google-github-actions/auth@v0
+      uses: google-github-actions/auth@v2
       with:
         credentials_json: ${{ inputs.service-account-key }}
 
     # Setting up Google Cloud CLI.
     - name: Setting up Google Cloud CLI.
-      uses: google-github-actions/setup-gcloud@v0
+      uses: google-github-actions/setup-gcloud@v2
 
     # Google Cloud CLI info.
     - name: Google Cloud CLI info.
@@ -55,7 +55,7 @@ runs:
 
     # Building the docker image.
     - name: Building the docker image.
-      run: docker build -t ${{ inputs.service }}:latest .
+      run: docker build -f Containerfile -t ${{ inputs.service }}:latest .
       shell: bash
 
     # Pushing the docker image.
