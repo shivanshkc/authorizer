@@ -31,13 +31,13 @@ func (g *GoogleProvider) Name() string {
 
 func (g *GoogleProvider) GetRedirectURL(ctx context.Context, state string) string {
 	conf := g.Config.OAuthGoogle
-	publicAddr := g.Config.Application.PublicAddr
+	serverRedirectURI := g.Config.OAuthGeneral.ServerRedirectURI
 
 	return fmt.Sprintf(
 		"%s?scope=%s&include_granted_scopes=true&response_type=code&redirect_uri=%s&client_id=%s&state=%s",
 		conf.RedirectURI,
 		conf.Scopes,
-		fmt.Sprintf("%s/api/auth/%s/callback", publicAddr, g.Name()),
+		fmt.Sprintf("%s/api/auth/%s/callback", serverRedirectURI, g.Name()),
 		conf.ClientID,
 		state,
 	)
@@ -45,14 +45,14 @@ func (g *GoogleProvider) GetRedirectURL(ctx context.Context, state string) strin
 
 func (g *GoogleProvider) TokenFromCode(ctx context.Context, code string) (string, error) {
 	conf := g.Config.OAuthGoogle
-	publicAddr := g.Config.Application.PublicAddr
+	serverRedirectURI := g.Config.OAuthGeneral.ServerRedirectURI
 
 	// Request body to obtain OAuth code.
 	body, err := json.Marshal(map[string]interface{}{
 		"code":          code,
 		"client_id":     conf.ClientID,
 		"client_secret": conf.ClientSecret,
-		"redirect_uri":  fmt.Sprintf("%s/api/auth/%s/callback", publicAddr, g.Name()),
+		"redirect_uri":  fmt.Sprintf("%s/api/auth/%s/callback", serverRedirectURI, g.Name()),
 		"grant_type":    "authorization_code",
 	})
 	if err != nil {

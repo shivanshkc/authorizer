@@ -16,6 +16,7 @@ import (
 	"github.com/shivanshkc/authorizer/pkg/config"
 	"github.com/shivanshkc/authorizer/pkg/logger"
 	"github.com/shivanshkc/authorizer/pkg/oauth"
+	"github.com/shivanshkc/authorizer/pkg/utils/signals"
 )
 
 func main() {
@@ -42,6 +43,7 @@ func main() {
 
 	// Instantiate the API handlers.
 	handler := &handlers.Handler{
+		Config:    conf,
 		UserDB:    userDB,
 		Providers: map[string]oauth.Provider{googleProvider.Name(): googleProvider},
 	}
@@ -70,6 +72,14 @@ func connectDB(conf config.Config) (*mongo.Client, error) {
 	if err := client.Ping(context.Background(), readpref.Primary()); err != nil {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
+
+	// Disconnect from database upon interruption.
+	signals.OnSignal(func(_ os.Signal) {
+		slog.Info("interruption detected, gracefully disconnecting from database")
+		if err := client.Disconnect(context.Background()); err != nil {
+			slog.Error("failed to gracefully disconnect from database", "err", err)
+		}
+	})
 
 	slog.Info("Connected with database")
 	return client, nil

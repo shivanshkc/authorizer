@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"log/slog"
 	"net/http"
+	"slices"
 
 	"github.com/gorilla/mux"
 
@@ -11,11 +12,14 @@ import (
 	"github.com/shivanshkc/authorizer/pkg/utils/httputils"
 )
 
-// errMissingRedirectURI is returned when the request contains no redirect URI.
-var errMissingRedirectURI = errutils.BadRequest().WithReasonStr("redirect_uri is missing")
-
-// errUnsupportedProvider is returned when the request specifies an unsupported oauth provider.
-var errUnsupportedProvider = errutils.BadRequest().WithReasonStr("provider is not supported")
+var (
+	// errMissingRedirectURI is returned when the request contains no redirect URI.
+	errMissingRedirectURI = errutils.BadRequest().WithReasonStr("redirect_uri is missing")
+	// errUnknownRedirectURI is returned when the request contains an unknown redirect URI.
+	errUnknownRedirectURI = errutils.BadRequest().WithReasonStr("redirect_uri is not allowed")
+	// errUnsupportedProvider is returned when the request specifies an unsupported oauth provider.
+	errUnsupportedProvider = errutils.BadRequest().WithReasonStr("provider is not supported")
+)
 
 // Redirect takes the user to the provider's authentication page.
 func (h *Handler) Redirect(w http.ResponseWriter, r *http.Request) {
@@ -23,12 +27,20 @@ func (h *Handler) Redirect(w http.ResponseWriter, r *http.Request) {
 
 	// Provider is a path parameter, and so, it will always be present.
 	providerName := mux.Vars(r)["provider"]
-
 	// Once authentication is done, the flow will end on this URL.
 	clientCallbackURI := r.URL.Query().Get("redirect_uri")
+
+	// client callback URI must be present.
 	if clientCallbackURI == "" {
 		slog.ErrorContext(ctx, "request has no redirect_uri")
 		httputils.WriteErr(w, errMissingRedirectURI)
+		return
+	}
+
+	// client callback URI must be one of the allowed ones.
+	if !slices.Contains(h.Config.OAuthGeneral.AllowedClientRedirectURIs, clientCallbackURI) {
+		slog.ErrorContext(ctx, "request contains unknown redirect_uri")
+		httputils.WriteErr(w, errUnknownRedirectURI)
 		return
 	}
 
