@@ -79,9 +79,9 @@ func (u *UserDB) SetUser(ctx context.Context, userDoc UserDoc) error {
 }
 
 // GetUser gets a user from the database.
-func (u *UserDB) GetUser(ctx context.Context, userID primitive.ObjectID) (UserDoc, error) {
+func (u *UserDB) GetUser(ctx context.Context, email string) (UserDoc, error) {
 	// Run query.
-	result := u.collection.FindOne(ctx, bson.M{"_id": userID})
+	result := u.collection.FindOne(ctx, bson.M{"email": email})
 	if err := result.Err(); err != nil {
 		// Handle 404.
 		if errors.Is(err, mongo.ErrNoDocuments) {

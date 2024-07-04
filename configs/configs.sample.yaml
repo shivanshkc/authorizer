@@ -26,4 +26,4 @@ oauth_google:
   client_id:
   client_secret:
   token_endpoint: https://oauth2.googleapis.com/token
-  jwks_uri: https://www.googleapis.com/oauth2/v3/certs
+  jwk_uri: https://www.googleapis.com/oauth2/v3/certs

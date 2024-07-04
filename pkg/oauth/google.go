@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"slices"
 
 	"github.com/lestrrat-go/jwx/jwk"
 	"github.com/lestrrat-go/jwx/jwt"
@@ -16,8 +17,11 @@ import (
 	"github.com/shivanshkc/authorizer/pkg/utils/httputils"
 )
 
+// googleProviderName uniquely identifies the GoogleProvider OAuth implementation from other implementations.
+const googleProviderName = "google"
+
 // googleIssuers is the allowed list of issuers for a Google access token.
-var googleIssuers = [2]string{"https://accounts.google.com", "accounts.google.com"}
+var googleIssuers = []string{"https://accounts.google.com", "accounts.google.com"}
 
 // GoogleProvider implements the Provider interface for Google.
 type GoogleProvider struct {
@@ -37,7 +41,7 @@ func NewGoogleProvider(conf config.Config) *GoogleProvider {
 }
 
 func (g *GoogleProvider) Name() string {
-	return "google"
+	return googleProviderName
 }
 
 func (g *GoogleProvider) GetRedirectURL(ctx context.Context, state string) string {
@@ -119,7 +123,7 @@ func (g *GoogleProvider) ValidateToken(ctx context.Context, token string) (Googl
 
 	// Verify issuer. There are two correct values that's why it can't be validated with parseOptions.
 	iss := decoded.Issuer()
-	if iss != googleIssuers[0] && iss != googleIssuers[1] {
+	if !slices.Contains(googleIssuers, iss) {
 		slog.ErrorContext(ctx, "unknown issuer found in token. This could be an attack", "iss", iss)
 		return GoogleClaims{}, errutils.Unauthorized().WithReasonStr("unknown issuer")
 	}
