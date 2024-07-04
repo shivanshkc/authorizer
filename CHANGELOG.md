@@ -1,3 +1,11 @@
+# [2.2.0](https://github.com/shivanshkc/authorizer/compare/v2.1.0...v2.2.0) (2024-07-04)
+
+
+### Features
+
+* **core:** add get user route ([f520cf5](https://github.com/shivanshkc/authorizer/commit/f520cf5bc5c1e9accd8c255956c066c1c8670c9e))
+* **core:** add token verification using google jwk ([3e21ec2](https://github.com/shivanshkc/authorizer/commit/3e21ec2dfdc29a16b2ce819f709db618afc49334))
+
 # [2.1.0](https://github.com/shivanshkc/authorizer/compare/v2.0.2...v2.1.0) (2024-07-02)
 
 
