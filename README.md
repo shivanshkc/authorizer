@@ -37,7 +37,7 @@ To run an Authorizer instance, follow these steps:
 
 ### Start Authentication Flow
 
-**Endpoint:** `/api/auth/{provider}`
+**Endpoint:** `GET /api/auth/{provider}`
 
 **Parameters:**
 - **Path Parameter:**
@@ -45,11 +45,36 @@ To run an Authorizer instance, follow these steps:
 - **Query Parameter:**
     - `redirect_uri`: The URL where the user will be redirected after authentication. Ensure this URL is in the allowed list in the application config before use.
 
-### Authentication Result
+**Authentication Result**
 
 - **Success:** The final URL will contain an `id_token` query parameter, which is a JWT that can be decoded to retrieve user details.
 - **Failure:** The final URL will contain an `error` query parameter with the failure reason.
 
-## Future Plans
+### Get User Details
 
-- Add an API to validate the `id_token` using the provider's official keys to verify the JWT signature.
+**Endpoint:** `GET /api/user`
+
+**Parameters:**
+- **Headers:**
+    - `Authorization`: The access token obtained using the auth API.
+
+**Success Response**
+```json5
+{
+    "_id": "6683b25382af3a39b661ee2f", // Hex code
+    "email": "example@gmail.com", // Email used during OAuth
+    "first_name": "John", 
+    "last_name": "Doe",
+    "picture_link": "https://photos.com/abc", // Picture link as obtained from Google.
+    "created_at": "2024-07-02T07:54:59.125Z",
+    "updated_at": "2024-07-04T18:58:01.891Z"
+}
+```
+
+**Error Responses**
+ - 401 if the access token is absent or malformed.
+ - 404 if the user does not exist.
+ - 500 if an unexpected error occurs.
+
+**Note**: The `/api/user` route can also be invoked using the `HEAD` verb which will not return the user's details, but
+it can be used to check the validity of the token. Also, it works much faster than the `GET` one.
