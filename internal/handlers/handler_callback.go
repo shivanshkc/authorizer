@@ -54,6 +54,7 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 	go fetchAndSaveUser(context.Background(), provider, accessToken, h.UserDB)
 
 	// Success redirect URL.
+	// We don't need to verify the token in this flow since it is coming directly from the provider.
 	redirectURL := fmt.Sprintf("%s?id_token=%s&provider=%s", clientCallbackURI, accessToken, providerName)
 	headers := map[string]string{"Location": redirectURL}
 	httputils.Write(w, http.StatusFound, headers, nil)
@@ -62,14 +63,21 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 // fetchAndSaveUser fetches the user's data from the given provider using the given access token and sets it in the db.
 func fetchAndSaveUser(ctx context.Context, provider oauth.Provider, token string, userDB *database.UserDB) {
 	// Obtain user's information from the token.
-	userInfo, err := provider.UserFromToken(ctx, token)
+	claims, err := provider.ValidateToken(ctx, token)
 	if err != nil {
-		slog.ErrorContext(ctx, "failed to obtain user info from token", "err", err)
+		slog.ErrorContext(ctx, "failed to validate token", "err", err)
 		return
 	}
 
+	userDoc := database.UserDoc{
+		Email:       claims.Email,
+		FirstName:   claims.GivenName,
+		LastName:    claims.FamilyName,
+		PictureLink: claims.PictureLink,
+	}
+
 	// Persist user's document in the database for later usage.
-	if err := userDB.SetUser(ctx, userInfo); err != nil {
+	if err := userDB.SetUser(ctx, userDoc); err != nil {
 		slog.ErrorContext(ctx, "failed to set user in the database", "err", err)
 	}
 }

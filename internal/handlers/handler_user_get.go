@@ -4,34 +4,49 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/gorilla/mux"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-
+	"github.com/shivanshkc/authorizer/pkg/oauth"
 	"github.com/shivanshkc/authorizer/pkg/utils/errutils"
 	"github.com/shivanshkc/authorizer/pkg/utils/httputils"
 )
 
-// errBadUserID is the returned error for an invalid user ID.
-var errBadUserID = errutils.BadRequest().WithReasonStr("invalid user ID")
-
 // GetUser serves the specified user's info.
 func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	// ID is a path parameter, so it will always be present.
-	userIDStr := mux.Vars(r)["id"]
 
-	// Parse the User ID.
-	userID, err := primitive.ObjectIDFromHex(userIDStr)
-	if err != nil {
-		slog.ErrorContext(ctx, "invalid user id", "id", userIDStr)
-		httputils.WriteErr(w, errBadUserID)
+	// Obtain the token.
+	token := r.Header.Get("Authorization")
+	if token == "" {
+		slog.ErrorContext(ctx, "no access token in request")
+		httputils.WriteErr(w, errutils.Unauthorized().WithReasonStr("access token absent"))
 		return
 	}
 
-	// Fetch the details.
-	userDoc, err := h.UserDB.GetUser(ctx, userID)
+	// Identify which provider does this token belong to.
+	providerName, err := oauth.ProviderFromToken(token)
 	if err != nil {
-		slog.ErrorContext(ctx, "error in GetUser call", "err", err)
+		slog.ErrorContext(ctx, "failed to identify the token's provider", "err", err)
+		httputils.WriteErr(w, err)
+		return
+	}
+
+	// Validate token.
+	claims, err := h.Providers[providerName].ValidateToken(ctx, token)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to validate token", "err", err)
+		httputils.WriteErr(w, err)
+		return
+	}
+
+	// If the verb is HEAD, return OK right away.
+	if r.Method == http.MethodHead {
+		httputils.Write(w, http.StatusOK, nil, nil)
+		return
+	}
+
+	// Get user details from DB.
+	userDoc, err := h.UserDB.GetUser(ctx, claims.Email)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to get user from DB", "err", err)
 		httputils.WriteErr(w, err)
 		return
 	}

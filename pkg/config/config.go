@@ -52,6 +52,8 @@ type Config struct {
 		ClientSecret string `yaml:"client_secret"`
 		// TokenEndpoint is Google's endpoint to exchange OAuth-code with ID token.
 		TokenEndpoint string `yaml:"token_endpoint"`
+		// JwkUri is Google's endpoint to get JWKs for access token verification.
+		JwkUri string `yaml:"jwk_uri"`
 	} `yaml:"oauth_google"`
 }
 
