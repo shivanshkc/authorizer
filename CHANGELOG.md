@@ -1,3 +1,11 @@
+## [2.2.1](https://github.com/shivanshkc/authorizer/compare/v2.2.0...v2.2.1) (2024-07-18)
+
+
+### Bug Fixes
+
+* **core:** return 401 for an invalid token ([ea70e5b](https://github.com/shivanshkc/authorizer/commit/ea70e5b981b78d1fc79a7b54c9b8cbcd549acb4f))
+* **docs:** update readme as per new api release [skip ci] ([4e39e37](https://github.com/shivanshkc/authorizer/commit/4e39e37461f2b0ea7b2149422c804e470465cffe))
+
 # [2.2.0](https://github.com/shivanshkc/authorizer/compare/v2.1.0...v2.2.0) (2024-07-04)
 
 
