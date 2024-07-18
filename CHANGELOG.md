@@ -1,3 +1,15 @@
+# [2.3.0](https://github.com/shivanshkc/authorizer/compare/v2.2.1...v2.3.0) (2024-07-18)
+
+
+### Bug Fixes
+
+* **docs:** add new api doc ([b3f6ad4](https://github.com/shivanshkc/authorizer/commit/b3f6ad4dffc0af6393037587f5c0428ddd3c2f7e))
+
+
+### Features
+
+* **core:** add get user by email api ([2f976d2](https://github.com/shivanshkc/authorizer/commit/2f976d29dfbab9fdd6c18e58e3d865a5839d5f3d))
+
 ## [2.2.1](https://github.com/shivanshkc/authorizer/compare/v2.2.0...v2.2.1) (2024-07-18)
 
 
