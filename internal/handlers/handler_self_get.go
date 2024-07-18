@@ -5,19 +5,14 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/gorilla/mux"
-
 	"github.com/shivanshkc/authorizer/pkg/oauth"
 	"github.com/shivanshkc/authorizer/pkg/utils/errutils"
 	"github.com/shivanshkc/authorizer/pkg/utils/httputils"
 )
 
-// GetUser serves the specified user's information if the authorization token is correct.
-func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
+// GetSelf decodes the given authorization token and serves the corresponding user's info.
+func (h *Handler) GetSelf(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-
-	// Email of the user to be fetched.
-	targetUserEmail := mux.Vars(r)["email"]
 
 	// Obtain the token.
 	token := r.Header.Get("Authorization")
@@ -42,14 +37,21 @@ func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate token.
-	if _, err := h.Providers[providerName].ValidateToken(ctx, token); err != nil {
+	claims, err := h.Providers[providerName].ValidateToken(ctx, token)
+	if err != nil {
 		slog.ErrorContext(ctx, "failed to validate token", "err", err)
 		httputils.WriteErr(w, err)
 		return
 	}
 
+	// If the verb is HEAD, return OK right away.
+	if r.Method == http.MethodHead {
+		httputils.Write(w, http.StatusOK, nil, nil)
+		return
+	}
+
 	// Get user details from DB.
-	userDoc, err := h.UserDB.GetUser(ctx, targetUserEmail)
+	userDoc, err := h.UserDB.GetUser(ctx, claims.Email)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to get user from DB", "err", err)
 		httputils.WriteErr(w, err)

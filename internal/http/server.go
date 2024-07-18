@@ -67,8 +67,11 @@ func (s *Server) getHandler() http.Handler {
 	// Callback route.
 	router.HandleFunc("/api/auth/{provider}/callback", s.Handler.Callback).Methods(http.MethodGet)
 
-	// Get user route. It can also be used to check the validity of a provider's ID token.
-	router.HandleFunc("/api/user", s.Handler.GetUser).Methods(http.MethodGet, http.MethodHead)
+	// Endpoint to fetch the logged-in user's own information.
+	// It can also be used to check the validity of an ID token.
+	router.HandleFunc("/api/user", s.Handler.GetSelf).Methods(http.MethodGet, http.MethodHead)
+	// Endpoint to fetch any user's data.
+	router.HandleFunc("/api/user/{email}", s.Handler.GetUser).Methods(http.MethodGet)
 
 	// Enable profiling if configured.
 	if s.Config.Application.PProf {

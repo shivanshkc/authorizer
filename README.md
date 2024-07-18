@@ -50,7 +50,7 @@ To run an Authorizer instance, follow these steps:
 - **Success:** The final URL will contain an `id_token` query parameter, which is a JWT that can be decoded to retrieve user details.
 - **Failure:** The final URL will contain an `error` query parameter with the failure reason.
 
-### Get User Details
+### Get Self Details
 
 **Endpoint:** `GET /api/user`
 
@@ -65,7 +65,7 @@ To run an Authorizer instance, follow these steps:
     "email": "example@gmail.com", // Email used during OAuth
     "first_name": "John", 
     "last_name": "Doe",
-    "picture_link": "https://photos.com/abc", // Picture link as obtained from Google.
+    "picture_link": "https://photos.com/abc", // Picture link as obtained from the provider.
     "created_at": "2024-07-02T07:54:59.125Z",
     "updated_at": "2024-07-04T18:58:01.891Z"
 }
@@ -78,3 +78,31 @@ To run an Authorizer instance, follow these steps:
 
 **Note**: The `/api/user` route can also be invoked using the `HEAD` verb which will not return the user's details, but
 it can be used to check the validity of the token. Also, it works much faster than the `GET` one.
+
+### Get User
+
+**Endpoint:** `GET /api/user/{email}`
+
+**Parameters:**
+- **Headers:**
+    - `Authorization`: The access token obtained using the auth API.
+- **Path:**
+  - `email`: Email of the user to be fetched.
+
+**Success Response**
+```json5
+{
+    "_id": "6683b25382af3a39b661ee2f", // Hex code
+    "email": "example@gmail.com",
+    "first_name": "John", 
+    "last_name": "Doe",
+    "picture_link": "https://photos.com/abc", // Picture link as obtained from the provider.
+    "created_at": "2024-07-02T07:54:59.125Z",
+    "updated_at": "2024-07-04T18:58:01.891Z"
+}
+```
+
+**Error Responses**
+- 401 if the access token is absent or malformed.
+- 404 if the user does not exist.
+- 500 if an unexpected error occurs.
