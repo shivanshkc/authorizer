@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 
@@ -25,6 +26,12 @@ func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
 	providerName, err := oauth.ProviderFromToken(token)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to identify the token's provider", "err", err)
+		// Handle known errors.
+		if errors.Is(err, oauth.ErrUnknownProvider) || errors.Is(err, oauth.ErrCannotDeduceProvider) {
+			httputils.WriteErr(w, errutils.Unauthorized().WithReasonStr("access token invalid"))
+			return
+		}
+		// Unexpected error.
 		httputils.WriteErr(w, err)
 		return
 	}

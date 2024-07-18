@@ -1,12 +1,18 @@
 package oauth
 
 import (
-	"fmt"
+	"errors"
 	"slices"
 
 	"github.com/lestrrat-go/jwx/jwt"
+)
 
-	"github.com/shivanshkc/authorizer/pkg/utils/errutils"
+var (
+	// ErrCannotDeduceProvider is returned when the provider cannot be deduced from the token.
+	// It is mostly due to malformed token.
+	ErrCannotDeduceProvider = errors.New("cannot deduce token provider")
+	// ErrUnknownProvider is returned when the token issuer is unknown.
+	ErrUnknownProvider = errors.New("unknown token provider")
 )
 
 // ProviderFromToken infers the provider name from the given token.
@@ -14,7 +20,7 @@ func ProviderFromToken(token string) (string, error) {
 	// Parse the token without any verifications.
 	parsed, err := jwt.Parse([]byte(token), jwt.WithValidate(false))
 	if err != nil {
-		return "", fmt.Errorf("failed to parse token: %w", err)
+		return "", errors.Join(ErrCannotDeduceProvider, err)
 	}
 
 	// Issuer can be used to identify the provider.
@@ -26,5 +32,5 @@ func ProviderFromToken(token string) (string, error) {
 	}
 
 	// Provider couldn't be determined.
-	return "", errutils.Unauthorized().WithReasonStr("unknown provider")
+	return "", ErrUnknownProvider
 }
