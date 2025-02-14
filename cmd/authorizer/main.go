@@ -1,22 +1,13 @@
 package main
 
 import (
-	"context"
-	"fmt"
 	"log/slog"
 	"os"
 
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.mongodb.org/mongo-driver/mongo/readpref"
-
-	"github.com/shivanshkc/authorizer/internal/database"
-	"github.com/shivanshkc/authorizer/internal/handlers"
+	"github.com/shivanshkc/authorizer/internal/config"
 	"github.com/shivanshkc/authorizer/internal/http"
-	"github.com/shivanshkc/authorizer/pkg/config"
-	"github.com/shivanshkc/authorizer/pkg/logger"
-	"github.com/shivanshkc/authorizer/pkg/oauth"
-	"github.com/shivanshkc/authorizer/pkg/utils/signals"
+	"github.com/shivanshkc/authorizer/internal/logger"
+	"github.com/shivanshkc/authorizer/pkg/signals"
 )
 
 func main() {
@@ -24,63 +15,22 @@ func main() {
 	conf := config.Load()
 	logger.Init(os.Stdout, conf.Logger.Level, conf.Logger.Pretty)
 
-	// Connect with the database.
-	mongoClient, err := connectDB(conf)
-	if err != nil {
-		slog.Error("failed to connect with database")
-		panic(err)
-	}
-
-	// Create the database object and indices.
-	userDB := database.NewUserDB(conf, mongoClient)
-	if err := userDB.CreateIndices(context.Background()); err != nil {
-		slog.Error("failed to create indices in the database")
-		panic(err)
-	}
-
-	// Instantiate all OAuth providers.
-	googleProvider := oauth.NewGoogleProvider(conf)
-
-	// Instantiate the API handlers.
-	handler := &handlers.Handler{
-		Config:    conf,
-		UserDB:    userDB,
-		Providers: map[string]oauth.Provider{googleProvider.Name(): googleProvider},
-	}
-
 	// Initialize the HTTP server.
-	server := &http.Server{
-		Config:     conf,
-		Middleware: http.Middleware{},
-		Handler:    handler,
-	}
+	server := &http.Server{Config: conf, Middleware: http.Middleware{}}
+
+	// Handle interruptions like SIGINT.
+	signals.OnSignal(func(_ os.Signal) {
+		slog.Info("Interruption detected, attempting graceful shutdown...")
+		// Execute all interruption handling here, like HTTP server shutdown, database connection closing etc.
+		server.Shutdown()
+	})
+
+	// Block until all actions are executed.
+	defer signals.Wait()
 
 	// This internally calls ListenAndServe.
 	// This is a blocking call and will panic if the server is unable to start.
-	server.Start()
-}
-
-// connectDB uses the given config to connect with MongoDB and returns the client.
-func connectDB(conf config.Config) (*mongo.Client, error) {
-	// Connect.
-	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(conf.Mongo.Addr))
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect with database: %w", err)
+	if err := server.Start(); err != nil {
+		panic("error in server.Start call: " + err.Error())
 	}
-
-	// Ping to check connection.
-	if err := client.Ping(context.Background(), readpref.Primary()); err != nil {
-		return nil, fmt.Errorf("failed to ping database: %w", err)
-	}
-
-	// Disconnect from database upon interruption.
-	signals.OnSignal(func(_ os.Signal) {
-		slog.Info("interruption detected, gracefully disconnecting from database")
-		if err := client.Disconnect(context.Background()); err != nil {
-			slog.Error("failed to gracefully disconnect from database", "err", err)
-		}
-	})
-
-	slog.Info("Connected with database")
-	return client, nil
 }

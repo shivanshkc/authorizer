@@ -8,9 +8,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/shivanshkc/authorizer/pkg/config"
-	"github.com/shivanshkc/authorizer/pkg/logger"
-	"github.com/shivanshkc/authorizer/pkg/utils/errutils"
+	"github.com/shivanshkc/authorizer/internal/config"
+	"github.com/shivanshkc/authorizer/internal/logger"
+	"github.com/shivanshkc/authorizer/internal/utils/errutils"
 )
 
 func TestMiddleware_Recovery(t *testing.T) {
@@ -27,7 +27,7 @@ func TestMiddleware_Recovery(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/api", nil)
 
 	// Create an instance of the recovery MW that passes control to a mock handler.
-	recoveryMW := mockMW.Recovery(hFunc(func(w http.ResponseWriter, r *http.Request) {
+	recoveryMW := mockMW.Recovery(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		panic(expectedResponse)
 	}))
 
@@ -72,7 +72,7 @@ func TestMiddleware_CORS(t *testing.T) {
 	rec := httptest.NewRecorder()
 
 	// Create an instance of the CORS MW that passes control to a mock handler.
-	corsMW := mockMW.CORS(hFunc(func(w http.ResponseWriter, r *http.Request) {
+	corsMW := mockMW.CORS(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
 

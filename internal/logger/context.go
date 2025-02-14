@@ -7,7 +7,7 @@ import (
 
 type contextKey int
 
-// ContextKey is used to put values into a context that are intended to be logged.
+// ctxKey is used to put values into a context that are intended to be logged.
 const ctxKey contextKey = iota
 
 // ContextHandler is a custom slog.Handler implementation that logs the values present in the context.
@@ -15,7 +15,7 @@ type ContextHandler struct {
 	slog.Handler
 }
 
-// Handle makes sure that all values present in the context are logged.
+// Handle adds the context values as attributes before calling the underlying handler.
 func (c *ContextHandler) Handle(ctx context.Context, r slog.Record) error {
 	if attrs, ok := ctx.Value(ctxKey).([]slog.Attr); ok {
 		for _, v := range attrs {

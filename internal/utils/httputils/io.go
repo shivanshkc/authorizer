@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/shivanshkc/authorizer/pkg/utils/errutils"
+	"github.com/shivanshkc/authorizer/internal/utils/errutils"
 )
 
 // Write writes the provided data as the HTTP response using the provided writer.

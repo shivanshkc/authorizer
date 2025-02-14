@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/shivanshkc/authorizer/pkg/logger"
+	"github.com/shivanshkc/authorizer/internal/logger"
 )
 
 func TestAccessLogger(t *testing.T) {
@@ -27,7 +27,7 @@ func TestAccessLogger(t *testing.T) {
 	req, res := httptest.NewRequest(http.MethodGet, "/", nil), httptest.NewRecorder()
 
 	// Create an instance of access-logger middleware that passes control to a mock handler.
-	accessLoggerMW := mockMW.AccessLogger(hFunc(func(w http.ResponseWriter, r *http.Request) {
+	accessLoggerMW := mockMW.AccessLogger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(expectedResponseStatus)
 	}))
 

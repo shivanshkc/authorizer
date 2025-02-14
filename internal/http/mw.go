@@ -6,17 +6,14 @@ import (
 	"net/http"
 	"runtime/debug"
 
-	"github.com/shivanshkc/authorizer/pkg/utils/httputils"
+	"github.com/shivanshkc/authorizer/internal/utils/httputils"
 )
-
-// hFunc is an alias for hFunc.
-type hFunc = http.HandlerFunc
 
 // Middleware implements all the REST middleware methods.
 type Middleware struct{}
 
 func (m Middleware) Recovery(next http.Handler) http.Handler {
-	return hFunc(func(w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			// Recover the panic.
 			errAny := recover()
@@ -33,7 +30,7 @@ func (m Middleware) Recovery(next http.Handler) http.Handler {
 			// Convert to error for handling.
 			err, ok := errAny.(error)
 			if !ok {
-				err = fmt.Errorf("unexpected error: %v", errAny)
+				err = fmt.Errorf("recover returned a non-error type value: %v", errAny)
 			}
 
 			// Response.
@@ -45,9 +42,11 @@ func (m Middleware) Recovery(next http.Handler) http.Handler {
 	})
 }
 
-// CORS middlewares handled the CORS issues.
+// CORS middleware attaches the necessary CORS headers.
+//
+// TODO: Make it secure.
 func (m Middleware) CORS(next http.Handler) http.Handler {
-	return hFunc(func(w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Headers", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "*")

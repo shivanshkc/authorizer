@@ -2,20 +2,10 @@ name: Deploy
 description: Deploys the project.
 
 inputs:
-  service-account-email:
-    description: |
-      Email of the service account that manages the involved cloud operations.
-      Required to explicitly set the service account for the Cloud Run service.
-    required: true
   service-account-key:
     description: |
       JSON formatted key for the service account.
       This can be obtained from the GCP console IAM page.
-    required: true
-
-  project-id:
-    description: |
-      Project ID under which the deployment is intended to happen.
     required: true
   region:
     description: |
@@ -25,7 +15,7 @@ inputs:
     description: |
       Name of the repository (GCP Artifacts Registry) where the docker image is present.
     required: true
-  service:
+  service_name:
     description: |
       Name of the service that will be displayed in Cloud Run.
     required: true
@@ -33,63 +23,67 @@ inputs:
 runs:
   using: composite
   steps:
-    # Authenticating with Google Cloud.
-    - name: Authenticating with Google Cloud.
+    # Authenticate with Google Cloud.
+    - name: Authenticate with Google Cloud.
       uses: google-github-actions/auth@v2
       with:
         credentials_json: ${{ inputs.service-account-key }}
 
-    # Setting up Google Cloud CLI.
-    - name: Setting up Google Cloud CLI.
+    # Set up Google Cloud CLI.
+    - name: Set up Google Cloud CLI.
       uses: google-github-actions/setup-gcloud@v2
 
-    # Google Cloud CLI info.
+    # Verify Google Cloud CLI installation.
     - name: Google Cloud CLI info.
       run: gcloud info
       shell: bash
 
-    # Configuring docker with credentials.
-    - name: Configuring docker with credentials.
+    # Configure docker with credentials.
+    - name: Configure docker with credentials.
       run: gcloud auth configure-docker ${{ inputs.region }}-docker.pkg.dev
       shell: bash
 
-    # Building the docker image.
-    - name: Building the docker image.
-      run: docker build -f Containerfile -t ${{ inputs.service }}:latest .
+    # Build the docker image.
+    - name: Build the docker image.
+      run: docker build -f Containerfile -t ${{ inputs.service_name }}:${{ github.sha }} .
       shell: bash
 
-    # Pushing the docker image.
-    - name: Pushing the docker image.
+    # Push the docker image.
+    - name: Push the docker image.
       run: |
-        docker tag ${{ inputs.service }}:latest \
-          ${{ inputs.region }}-docker.pkg.dev/${{ inputs.project-id }}/${{ inputs.repository }}/${{ inputs.service }}:latest
+        project_id=$(echo '${{ inputs.service-account-key }}' | jq -r .project_id)
+
+        docker tag ${{ inputs.service_name }}:${{ github.sha }} \
+          ${{ inputs.region }}-docker.pkg.dev/$project_id/${{ inputs.repository }}/${{ inputs.service_name }}:${{ github.sha }}
 
         docker push \
-          ${{ inputs.region }}-docker.pkg.dev/${{ inputs.project-id }}/${{ inputs.repository }}/${{ inputs.service }}:latest
+          ${{ inputs.region }}-docker.pkg.dev/$project_id/${{ inputs.repository }}/${{ inputs.service_name }}:${{ github.sha }}
       shell: bash
 
-    # Deploying to cloud run with all the custom, cost-effective options.
-    - name: Deploying to cloud run.
+    # Deploy to cloud run cost-effectively.
+    - name: Deploy to cloud run.
       run: |
-        gcloud run deploy ${{ inputs.service }} \
+        project_id=$(echo '${{ inputs.service-account-key }}' | jq -r .project_id)
+        service_account_email=$(echo '${{ inputs.service-account-key }}' | jq -r .client_email)
+
+        gcloud run deploy ${{ inputs.service_name }} \
           --concurrency=80 \
           --min-instances=0 \
           --max-instances=1 \
           --memory=128Mi \
           --platform=managed \
           --port=8080 \
-          --service-account=${{ inputs.service-account-email }} \
+          --service-account=$service_account_email \
           --timeout=600 \
-          --set-secrets=/etc/${{ inputs.service }}/configs.yaml=${{ inputs.service }}-configs:latest \
-          --image=${{ inputs.region }}-docker.pkg.dev/${{ inputs.project-id }}/${{ inputs.repository }}/${{ inputs.service }}:latest \
+          --image=${{ inputs.region }}-docker.pkg.dev/$project_id/${{ inputs.repository }}/${{ inputs.service_name }}:${{ github.sha }} \
           --cpu-throttling \
           --region=${{ inputs.region }}
       shell: bash
 
-    # Allowing public access. Remove this step if public access is not intended.
-    - name: Allowing public access.
+    # Allow public access. Remove this step if public access is not intended.
+    - name: Allow public access.
       run: |
-        gcloud run services add-iam-policy-binding ${{ inputs.service }} \
+        gcloud run services add-iam-policy-binding ${{ inputs.service_name }} \
           --region=${{ inputs.region }} \
           --member=allUsers \
           --role=roles/run.invoker
