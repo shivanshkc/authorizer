@@ -13,7 +13,7 @@ type Provider interface {
 	//
 	// The "state" parameter is returned as is in the provider's callback
 	// and can be used to correlate it with the original redirect.
-	GetRedirectURL(ctx context.Context, state string) string
+	GetRedirectURL(ctx context.Context, state string) (string, error)
 
 	// TokenFromCode converts the auth code to the identity token.
 	TokenFromCode(ctx context.Context, code string) (string, error)

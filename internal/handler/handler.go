@@ -18,8 +18,8 @@ type Handler struct {
 }
 
 // NewHandler creates a new Handler instance.
-func NewHandler(config config.Config) *Handler {
-	return &Handler{config: config}
+func NewHandler(config config.Config, google, discord oauth.Provider) *Handler {
+	return &Handler{config: config, googleProvider: google, discordProvider: discord}
 }
 
 // NotFound handler can be used to serve any unrecognized routes.

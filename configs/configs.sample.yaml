@@ -1,6 +1,7 @@
 ---
 application:
   name: authorizer
+  base_url: http://localhost:8080
 
 http_server:
   addr: localhost:8080
@@ -10,4 +11,8 @@ logger:
   pretty: true
 
 allowed_redirect_urls:
-  - http://localhost:8080/api/auth/google/callback
+  - http://localhost:8080
+
+google:
+  client_id: string
+  client_secret: string

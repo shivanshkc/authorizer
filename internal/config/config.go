@@ -6,6 +6,9 @@ type Config struct {
 	Application struct {
 		// Name of the application.
 		Name string `yaml:"name"`
+		// BaseURL of the application.
+		// It can be http://localhost:8080 during development and https://domain.com in production.
+		BaseURL string `yaml:"base_url"`
 	} `yaml:"application"`
 
 	// HTTPServer is the model of the HTTP Server configs.
@@ -24,6 +27,12 @@ type Config struct {
 
 	// AllowedRedirectURLs is the list of URLs that Authorizer may redirect to after th OAuth flow is complete.
 	AllowedRedirectURLs []string `yaml:"allowed_redirect_urls"`
+
+	// Google OAuth related configs.
+	Google struct {
+		ClientID     string `yaml:"client_id"`
+		ClientSecret string `yaml:"client_secret"`
+	} `yaml:"google"`
 }
 
 // Load loads and returns the config value.

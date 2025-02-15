@@ -61,24 +61,31 @@ func (h *Handler) Redirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// TODO: Maintain a state of IDs.
 	// Obtain the OAuth "state" parameter.
-	state := encodeState(clientCallbackURL)
+	state := encodeState(uuid.NewString(), clientCallbackURL)
 	// Get the redirect URL.
-	redirectURL := provider.GetRedirectURL(ctx, state)
+	redirectURL, err := provider.GetRedirectURL(ctx, state)
+	if err != nil {
+		slog.ErrorContext(ctx, "error in GetRedirectURL call", "provider", providerName, "error", err)
+		httputils.WriteErr(w, errutils.InternalServerError())
+		return
+	}
+
 	// Redirect the caller.
 	httputils.Write(w, http.StatusFound, map[string]string{"Location": redirectURL}, nil)
 }
 
 // oAuthState is encoded and used as the "state" parameter during the OAuth flow.
 type oAuthState struct {
-	// salt keeps the state unique.
-	Salt              string
+	// ID makes the state unique
+	ID                string
 	ClientCallbackURL string
 }
 
 // encodeState combines the given clientCallbackURL with a salt to create a unique state string.
-func encodeState(clientCallbackURL string) string {
-	s, _ := json.Marshal(oAuthState{ClientCallbackURL: clientCallbackURL, Salt: uuid.New().String()})
+func encodeState(id, clientCallbackURL string) string {
+	s, _ := json.Marshal(oAuthState{ClientCallbackURL: clientCallbackURL, ID: id})
 	return base64.StdEncoding.EncodeToString(s)
 }
 
