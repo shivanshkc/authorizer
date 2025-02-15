@@ -23,7 +23,7 @@ func (g *Google) Name() string {
 	return "google"
 }
 
-func (g *Google) GetRedirectURL(ctx context.Context, state string) (string, error) {
+func (g *Google) GetAuthURL(ctx context.Context, state string) (string, error) {
 	// Convert to Go's URL type to conveniently build the query string.
 	u, err := url.Parse(`https://accounts.google.com/o/oauth2/v2/auth`)
 	if err != nil {

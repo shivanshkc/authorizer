@@ -23,8 +23,8 @@ var (
 	errUnimplementedProvider = errutils.BadRequest().WithReasonStr("provider is not implemented")
 )
 
-// Redirect the caller to the specified provider's authentication page.
-func (h *Handler) Redirect(w http.ResponseWriter, r *http.Request) {
+// Auth starts the OAuth flow by redirecting the caller to the specified provider's authentication page.
+func (h *Handler) Auth(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	// Provider is a path parameter and so it will always be present.
@@ -64,16 +64,16 @@ func (h *Handler) Redirect(w http.ResponseWriter, r *http.Request) {
 	// TODO: Maintain a state of IDs.
 	// Obtain the OAuth "state" parameter.
 	state := encodeState(uuid.NewString(), clientCallbackURL)
-	// Get the redirect URL.
-	redirectURL, err := provider.GetRedirectURL(ctx, state)
+	// Get the Auth URL of the provider.
+	authURL, err := provider.GetAuthURL(ctx, state)
 	if err != nil {
-		slog.ErrorContext(ctx, "error in GetRedirectURL call", "provider", providerName, "error", err)
+		slog.ErrorContext(ctx, "error in GetAuthURL call", "provider", providerName, "error", err)
 		httputils.WriteErr(w, errutils.InternalServerError())
 		return
 	}
 
 	// Redirect the caller.
-	httputils.Write(w, http.StatusFound, map[string]string{"Location": redirectURL}, nil)
+	httputils.Write(w, http.StatusFound, map[string]string{"Location": authURL}, nil)
 }
 
 // oAuthState is encoded and used as the "state" parameter during the OAuth flow.

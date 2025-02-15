@@ -66,8 +66,8 @@ func (s *Server) handler() http.Handler {
 
 	// Endpoint to check if a request is authenticated.
 	router.HandleFunc("/api/check", s.Handler.Check).Methods(http.MethodGet)
-	// Endpoint to initiate OAuth flow.
-	router.HandleFunc("/api/auth/{provider}", s.Handler.Redirect).Methods(http.MethodGet)
+	// Endpoint to initiate the OAuth flow.
+	router.HandleFunc("/api/auth/{provider}", s.Handler.Auth).Methods(http.MethodGet)
 	// Callback endpoint for a provider.
 	router.HandleFunc("/api/auth/{provider}/callback", s.Handler.Callback).Methods(http.MethodGet)
 
