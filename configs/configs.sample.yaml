@@ -8,3 +8,6 @@ http_server:
 logger:
   level: debug
   pretty: true
+
+allowed_redirect_urls:
+  - http://localhost:8080/api/auth/google/callback

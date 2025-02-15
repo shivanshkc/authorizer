@@ -19,7 +19,7 @@ import (
 type Server struct {
 	Config     config.Config
 	Middleware middleware.Middleware
-	Handler    handler.Handler
+	Handler    *handler.Handler
 
 	httpServer *http.Server
 }

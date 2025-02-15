@@ -21,7 +21,7 @@ func main() {
 	server := &http.Server{
 		Config:     conf,
 		Middleware: middleware.Middleware{},
-		Handler:    handler.Handler{},
+		Handler:    handler.NewHandler(conf),
 	}
 
 	// Handle interruptions like SIGINT.

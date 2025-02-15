@@ -21,6 +21,9 @@ type Config struct {
 		// Pretty is a flag that dictates whether the log output should be pretty (human-readable).
 		Pretty bool `yaml:"pretty"`
 	} `yaml:"logger"`
+
+	// AllowedRedirectURLs is the list of URLs that Authorizer may redirect to after th OAuth flow is complete.
+	AllowedRedirectURLs []string `yaml:"allowed_redirect_urls"`
 }
 
 // Load loads and returns the config value.
