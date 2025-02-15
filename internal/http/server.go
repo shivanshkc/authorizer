@@ -11,14 +11,16 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/shivanshkc/authorizer/internal/config"
-	"github.com/shivanshkc/authorizer/internal/utils/errutils"
-	"github.com/shivanshkc/authorizer/internal/utils/httputils"
+	"github.com/shivanshkc/authorizer/internal/handler"
+	"github.com/shivanshkc/authorizer/internal/middleware"
 )
 
 // Server is the HTTP server of this application.
 type Server struct {
 	Config     config.Config
-	Middleware Middleware
+	Middleware middleware.Middleware
+	Handler    handler.Handler
+
 	httpServer *http.Server
 }
 
@@ -58,17 +60,19 @@ func (s *Server) handler() http.Handler {
 	router.Use(s.Middleware.CORS)
 	router.Use(s.Middleware.AccessLogger)
 
-	// Sample REST method.
-	router.HandleFunc("/api", func(w http.ResponseWriter, r *http.Request) {
-		httputils.Write(w, http.StatusNoContent, nil, nil)
-	}).Methods(http.MethodGet)
+	// Heath check route.
+	router.HandleFunc("/api", s.Handler.Health).Methods(http.MethodGet)
+	router.HandleFunc("/api/health", s.Handler.Health).Methods(http.MethodGet)
 
-	// More API routes here...
+	// Endpoint to check if a request is authenticated.
+	router.HandleFunc("/api/check", s.Handler.Check).Methods(http.MethodGet)
+	// Endpoint to initiate OAuth flow.
+	router.HandleFunc("/api/auth/{provider}", s.Handler.Redirect).Methods(http.MethodGet)
+	// Callback endpoint for a provider.
+	router.HandleFunc("/api/auth/{provider}/callback", s.Handler.Callback).Methods(http.MethodGet)
 
-	// Handle 404.
-	router.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		httputils.WriteErr(w, errutils.NotFound())
-	})
+	// All remaining routes result in 404.
+	router.PathPrefix("/").HandlerFunc(s.Handler.NotFound)
 
 	return router
 }

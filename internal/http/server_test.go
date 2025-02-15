@@ -10,6 +10,7 @@ import (
 
 	"github.com/shivanshkc/authorizer/internal/config"
 	"github.com/shivanshkc/authorizer/internal/logger"
+	"github.com/shivanshkc/authorizer/internal/middleware"
 )
 
 // TestServer_Start checks if the HTTP server starts correctly with all the valid parameters.
@@ -52,7 +53,7 @@ func mockServerStart() *Server {
 	// Instantiate the server to be tested.
 	server := &Server{
 		Config:     conf,
-		Middleware: Middleware{},
+		Middleware: middleware.Middleware{},
 	}
 
 	// Start the server without blocking.

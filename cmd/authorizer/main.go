@@ -5,8 +5,10 @@ import (
 	"os"
 
 	"github.com/shivanshkc/authorizer/internal/config"
+	"github.com/shivanshkc/authorizer/internal/handler"
 	"github.com/shivanshkc/authorizer/internal/http"
 	"github.com/shivanshkc/authorizer/internal/logger"
+	"github.com/shivanshkc/authorizer/internal/middleware"
 	"github.com/shivanshkc/authorizer/pkg/signals"
 )
 
@@ -16,7 +18,11 @@ func main() {
 	logger.Init(os.Stdout, conf.Logger.Level, conf.Logger.Pretty)
 
 	// Initialize the HTTP server.
-	server := &http.Server{Config: conf, Middleware: http.Middleware{}}
+	server := &http.Server{
+		Config:     conf,
+		Middleware: middleware.Middleware{},
+		Handler:    handler.Handler{},
+	}
 
 	// Handle interruptions like SIGINT.
 	signals.OnSignal(func(_ os.Signal) {
