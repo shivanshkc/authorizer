@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"slices"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -61,9 +62,27 @@ func (h *Handler) Auth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Maintain a state of IDs.
+	// Create and persist the state ID for better CSRF protection.
+	stateID := uuid.NewString()
+	h.stateIDs.Store(stateID, struct{}{})
+
+	// Expire the state ID after some time.
+	go func() {
+		// This is the max allowed time for the provider to invoke the callback API.
+		// If the provider is too late, the state ID will be expired and the flow will fail.
+		time.Sleep(time.Minute)
+
+		// Expire state ID will apt logs.
+		slog.InfoContext(ctx, "expiring state ID", "stateID", stateID)
+		if _, present := h.stateIDs.LoadAndDelete(stateID); !present {
+			slog.InfoContext(ctx, "state ID already deleted", "stateID", stateID)
+			return
+		}
+		slog.WarnContext(ctx, "state ID was not already deleted", "stateID", stateID)
+	}()
+
 	// Obtain the OAuth "state" parameter.
-	state := encodeState(uuid.NewString(), clientCallbackURL)
+	state := encodeState(stateID, clientCallbackURL)
 	// Get the Auth URL of the provider.
 	authURL, err := provider.GetAuthURL(ctx, state)
 	if err != nil {

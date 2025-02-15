@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"sync"
 
 	"github.com/shivanshkc/authorizer/internal/config"
 	"github.com/shivanshkc/authorizer/internal/utils/errutils"
@@ -11,7 +12,8 @@ import (
 
 // Handler encapsulates all REST handlers.
 type Handler struct {
-	config config.Config
+	config   config.Config
+	stateIDs *sync.Map
 
 	googleProvider  oauth.Provider
 	discordProvider oauth.Provider
@@ -19,7 +21,12 @@ type Handler struct {
 
 // NewHandler creates a new Handler instance.
 func NewHandler(config config.Config, google, discord oauth.Provider) *Handler {
-	return &Handler{config: config, googleProvider: google, discordProvider: discord}
+	return &Handler{
+		config:          config,
+		stateIDs:        &sync.Map{},
+		googleProvider:  google,
+		discordProvider: discord,
+	}
 }
 
 // NotFound handler can be used to serve any unrecognized routes.
