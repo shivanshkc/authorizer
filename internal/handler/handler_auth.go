@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -59,6 +60,9 @@ func (h *Handler) Auth(w http.ResponseWriter, r *http.Request) {
 
 	// Expire the state ID after some time.
 	go func() {
+		// Don't use the HTTP request's context here.
+		ctx := context.Background()
+
 		// This is the max allowed time for the provider to invoke the callback API.
 		// If the provider is too late, the state ID will be expired and the flow will fail.
 		time.Sleep(time.Minute)
@@ -82,8 +86,17 @@ func (h *Handler) Auth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Redirect the caller.
-	httputils.Write(w, http.StatusFound, map[string]string{"Location": authURL}, nil)
+	// Response headers.
+	headers := map[string]string{
+		"Location": authURL,
+		// The following headers make sure that the browser is not allowed to render the page
+		// in a <frame>, <iframe>, <embed> or <object> tag.
+		"X-Frame-Options":         "DENY",
+		"Content-Security-Policy": "frame-ancestors 'none'",
+	}
+
+	// Redirect.
+	httputils.Write(w, http.StatusFound, headers, nil)
 }
 
 // oAuthState is encoded and used as the "state" parameter during the OAuth flow.
