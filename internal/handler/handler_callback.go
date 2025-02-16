@@ -69,11 +69,17 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Success redirect URL.
-	// We don't need to verify the token in this flow since it is coming directly from the provider.
-	redirectURL := fmt.Sprintf("%s?token=%s&provider=%s", oState.ClientCallbackURL, token, providerName)
-	headers := map[string]string{"Location": redirectURL}
-	httputils.Write(w, http.StatusFound, headers, nil)
+	// Decode token to obtain claims. This also verifies the token.
+	claims, err := provider.DecodeToken(ctx, token)
+	if err != nil {
+		slog.ErrorContext(ctx, "error in DecodeToken call", "error", err)
+		errorRedirect(w, errutils.InternalServerError(), oState.ClientCallbackURL)
+		return
+	}
+
+	_ = claims
+
+	// Redirect with cookies and correct headers.
 }
 
 // errorRedirect redirects the caller (by writing 302 and the Location header to the response) and attaches

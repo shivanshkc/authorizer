@@ -10,7 +10,19 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/lestrrat-go/httprc/v3"
+	"github.com/lestrrat-go/jwx/v3/jwk"
+	"github.com/lestrrat-go/jwx/v3/jwt"
+
 	"github.com/shivanshkc/authorizer/internal/utils/httputils"
+)
+
+const (
+	// Source: https://developers.google.com/identity/protocols/oauth2/web-server#creatingclient
+	googleAuthURL = "https://accounts.google.com/o/oauth2/v2/auth"
+	// Source: https://developers.google.com/identity/protocols/oauth2/web-server#exchange-authorization-code
+	googleTokenURL = "https://oauth2.googleapis.com/token"
+	googleJWKURL   = "https://www.googleapis.com/oauth2/v3/certs"
 )
 
 // Google implements the Provider interface for Google.
@@ -28,6 +40,7 @@ type Google struct {
 	scopes string
 
 	httpClient *http.Client
+	jwkCache   *jwk.Cache
 }
 
 // googleTokenResponse is the body schema of the response returned by Google's code-to-token endpoint.
@@ -43,14 +56,31 @@ type googleTokenResponse struct {
 }
 
 // NewGoogle instantiates a new Google provider instance.
-func NewGoogle(clientID, clientSecret, callbackURL, scopes string) *Google {
+//
+// It accepts a context because it periodically fetches Google's JSON Web Keys and the context can be used to cancel
+// the underlying fetching goroutine.
+func NewGoogle(ctx context.Context, clientID, clientSecret, callbackURL, scopes string) (*Google, error) {
+	// This allows auto-refresh of the JWK as Google keeps rotating them.
+	// See the documentation here:
+	// https://github.com/lestrrat-go/jwx/tree/develop/v3/jwk#auto-refresh-a-key-during-a-long-running-process
+	jwkCache, err := jwk.NewCache(ctx, httprc.NewClient())
+	if err != nil {
+		return nil, fmt.Errorf("error in jwk.NewCache call: %w", err)
+	}
+
+	// Register Google's JWK fetch URL.
+	if err := jwkCache.Register(ctx, googleJWKURL); err != nil {
+		return nil, fmt.Errorf("error in jwkCache.Register call: %w", err)
+	}
+
 	return &Google{
 		clientID:     clientID,
 		clientSecret: clientSecret,
 		callbackURL:  callbackURL,
 		scopes:       scopes,
 		httpClient:   &http.Client{},
-	}
+		jwkCache:     jwkCache,
+	}, nil
 }
 
 func (g *Google) Name() string {
@@ -59,9 +89,7 @@ func (g *Google) Name() string {
 
 func (g *Google) GetAuthURL(ctx context.Context, state string) (string, error) {
 	// Convert to Go's URL type to conveniently build the query string.
-	// This auth endpoint URL is documented here:
-	// https://developers.google.com/identity/protocols/oauth2/web-server#creatingclient
-	u, err := url.Parse(`https://accounts.google.com/o/oauth2/v2/auth`)
+	u, err := url.Parse(googleAuthURL)
 	if err != nil {
 		return "", fmt.Errorf("error in url.Parse call: %w", err)
 	}
@@ -80,10 +108,6 @@ func (g *Google) GetAuthURL(ctx context.Context, state string) (string, error) {
 }
 
 func (g *Google) TokenFromCode(ctx context.Context, code string) (string, error) {
-	// Endpoint to obtain token as per:
-	// https://developers.google.com/identity/protocols/oauth2/web-server#exchange-authorization-code
-	endpoint := `https://oauth2.googleapis.com/token`
-
 	// Request body.
 	body := map[string]any{
 		"code":          code,
@@ -100,7 +124,7 @@ func (g *Google) TokenFromCode(ctx context.Context, code string) (string, error)
 	}
 
 	// Form the HTTP request.
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(bodyBytes))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, googleTokenURL, bytes.NewReader(bodyBytes))
 	if err != nil {
 		return "", fmt.Errorf("error in http.NewRequestWithContext call: %w", err)
 	}
@@ -134,7 +158,40 @@ func (g *Google) TokenFromCode(ctx context.Context, code string) (string, error)
 }
 
 func (g *Google) DecodeToken(ctx context.Context, token string) (Claims, error) {
-	jwkEndpoint := `https://www.googleapis.com/oauth2/v3/certs`
-	_ = jwkEndpoint
-	return Claims{}, nil
+	// Google's documentation for ID token verification:
+	// https://developers.google.com/identity/gsi/web/guides/verify-google-id-token
+
+	// Obtain Google's key set.
+	set, err := g.jwkCache.Lookup(ctx, googleJWKURL)
+	if err != nil {
+		return Claims{}, fmt.Errorf("error in jwkCache.Lookup call: %w", err)
+	}
+
+	// Parse and validate the token with the obtained key set.
+	parsed, err := jwt.Parse([]byte(token), jwt.WithKeySet(set), jwt.WithValidate(true), jwt.WithAudience(g.clientID))
+	if err != nil {
+		return Claims{}, fmt.Errorf("error in jwt.Parse call: %w", err)
+	}
+
+	// Validate issuer. This could not be done with jwt.WithIssuer because there are two allowed values.
+	if iss, _ := parsed.Issuer(); iss != "accounts.google.com" && iss != "https://accounts.google.com" {
+		return Claims{}, fmt.Errorf("jwt has unknown issue: %s", iss)
+	}
+
+	// Decode all claims.
+	var claims Claims
+	if err := parsed.Get("email", &claims.Email); err != nil {
+		return Claims{}, fmt.Errorf("failed to decode email claim: %w", err)
+	}
+	if err := parsed.Get("given_name", &claims.GivenName); err != nil {
+		return Claims{}, fmt.Errorf("failed to decode given_name claim: %w", err)
+	}
+	if err := parsed.Get("family_name", &claims.FamilyName); err != nil {
+		return Claims{}, fmt.Errorf("failed to decode family_name claim: %w", err)
+	}
+	if err := parsed.Get("picture", &claims.PictureURL); err != nil {
+		return Claims{}, fmt.Errorf("failed to decode picture claim: %w", err)
+	}
+
+	return claims, nil
 }

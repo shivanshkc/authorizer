@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -14,15 +15,25 @@ import (
 	"github.com/shivanshkc/authorizer/pkg/signals"
 )
 
+// googleScopes for OAuth with Google.
+const googleScopes = "https://www.googleapis.com/auth/userinfo.email " +
+	"https://www.googleapis.com/auth/userinfo.profile"
+
 func main() {
+	// Root application context.
+	ctx, ctxCancel := context.WithCancel(context.Background())
+
 	// Initialize basic dependencies.
 	conf := config.Load()
 	logger.Init(os.Stdout, conf.Logger.Level, conf.Logger.Pretty)
 
 	// Instantiate the OAuth client for Google.
-	googleProvider := oauth.NewGoogle(conf.Google.ClientID, conf.Google.ClientSecret,
-		fmt.Sprintf("%s/api/auth/google/callback", conf.Application.BaseURL),
-		"https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile")
+	googleCallback := fmt.Sprintf("%s/api/auth/google/callback", conf.Application.BaseURL)
+	googleProvider, err := oauth.NewGoogle(ctx, conf.Google.ClientID, conf.Google.ClientSecret,
+		googleCallback, googleScopes)
+	if err != nil {
+		panic("failed to initialize google provider: " + err.Error())
+	}
 
 	// Initialize the HTTP server.
 	server := &http.Server{
@@ -35,6 +46,7 @@ func main() {
 	signals.OnSignal(func(_ os.Signal) {
 		slog.Info("Interruption detected, attempting graceful shutdown...")
 		// Execute all interruption handling here, like HTTP server shutdown, database connection closing etc.
+		ctxCancel()
 		server.Shutdown()
 	})
 
