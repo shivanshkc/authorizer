@@ -18,8 +18,8 @@ type Provider interface {
 	// TokenFromCode converts the auth code to the identity token.
 	TokenFromCode(ctx context.Context, code string) (string, error)
 
-	// ValidateToken validates the token claims and signature, and returns the claims.
-	ValidateToken(ctx context.Context, token string) (Claims, error)
+	// DecodeToken validates the token claims and signature, and returns the claims.
+	DecodeToken(ctx context.Context, token string) (Claims, error)
 }
 
 // Claims contain the user data retrieved from an OAuth provider.

@@ -20,12 +20,9 @@ func main() {
 	logger.Init(os.Stdout, conf.Logger.Level, conf.Logger.Pretty)
 
 	// Instantiate the OAuth client for Google.
-	googleProvider := &oauth.Google{
-		ClientID:     conf.Google.ClientID,
-		ClientSecret: conf.Google.ClientSecret,
-		CallbackURL:  fmt.Sprintf("%s/api/auth/google/callback", conf.Application.BaseURL),
-		Scopes:       "https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile",
-	}
+	googleProvider := oauth.NewGoogle(conf.Google.ClientID, conf.Google.ClientSecret,
+		fmt.Sprintf("%s/api/auth/google/callback", conf.Application.BaseURL),
+		"https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile")
 
 	// Initialize the HTTP server.
 	server := &http.Server{

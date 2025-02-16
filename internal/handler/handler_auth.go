@@ -14,14 +14,12 @@ import (
 
 	"github.com/shivanshkc/authorizer/internal/utils/errutils"
 	"github.com/shivanshkc/authorizer/internal/utils/httputils"
-	"github.com/shivanshkc/authorizer/pkg/oauth"
 )
 
 var (
-	errMissingRedirectURL    = errutils.BadRequest().WithReasonStr("redirect_url is missing")
-	errUnknownRedirectURL    = errutils.BadRequest().WithReasonStr("redirect_url is not allowed")
-	errUnsupportedProvider   = errutils.BadRequest().WithReasonStr("provider is not supported")
-	errUnimplementedProvider = errutils.BadRequest().WithReasonStr("provider is not implemented")
+	errMissingRedirectURL  = errutils.BadRequest().WithReasonStr("redirect_url is missing")
+	errUnknownRedirectURL  = errutils.BadRequest().WithReasonStr("redirect_url is not allowed")
+	errUnsupportedProvider = errutils.BadRequest().WithReasonStr("provider is not supported")
 )
 
 // Auth starts the OAuth flow by redirecting the caller to the specified provider's authentication page.
@@ -48,16 +46,9 @@ func (h *Handler) Auth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Select provider as per the given name.
-	var provider oauth.Provider
-	switch providerName {
-	case h.googleProvider.Name():
-		provider = h.googleProvider
-	case h.discordProvider.Name():
+	provider := h.getProvider(providerName)
+	if provider == nil {
 		slog.ErrorContext(ctx, "provider is not implemented", "provider", providerName)
-		httputils.WriteErr(w, errUnimplementedProvider)
-		return
-	default:
-		slog.ErrorContext(ctx, "request contains unsupported provider", "provider", providerName)
 		httputils.WriteErr(w, errUnsupportedProvider)
 		return
 	}
@@ -75,10 +66,10 @@ func (h *Handler) Auth(w http.ResponseWriter, r *http.Request) {
 		// Expire state ID will apt logs.
 		slog.InfoContext(ctx, "expiring state ID", "stateID", stateID)
 		if _, present := h.stateIDs.LoadAndDelete(stateID); !present {
-			slog.InfoContext(ctx, "state ID already deleted", "stateID", stateID)
+			slog.InfoContext(ctx, "state ID utilized before expiry", "stateID", stateID)
 			return
 		}
-		slog.WarnContext(ctx, "state ID was not already deleted", "stateID", stateID)
+		slog.WarnContext(ctx, "state ID expired", "stateID", stateID)
 	}()
 
 	// Obtain the OAuth "state" parameter.

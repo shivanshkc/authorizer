@@ -39,3 +39,15 @@ func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 	info := map[string]string{}
 	httputils.Write(w, http.StatusOK, nil, info)
 }
+
+// getProvider returns the provider for the given name.
+func (h *Handler) getProvider(providerName string) oauth.Provider {
+	switch providerName {
+	case h.googleProvider.Name():
+		return h.googleProvider
+	case h.discordProvider.Name():
+		return h.discordProvider
+	default:
+		return nil
+	}
+}
