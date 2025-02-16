@@ -78,8 +78,13 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_ = claims
+	// TODO: Redirect with correct encoding, cookies and security headers.
 
-	// Redirect with cookies and correct headers.
+	// Success redirect URL.
+	// We don't need to verify the token in this flow since it is coming directly from the provider.
+	redirectURL := fmt.Sprintf("%s?token=%s&provider=%s", oState.ClientCallbackURL, token, providerName)
+	headers := map[string]string{"Location": redirectURL}
+	httputils.Write(w, http.StatusFound, headers, nil)
 }
 
 // errorRedirect redirects the caller (by writing 302 and the Location header to the response) and attaches
