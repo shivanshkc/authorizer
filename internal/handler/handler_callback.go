@@ -21,6 +21,8 @@ var errInvalidState = errors.New("invalid oauth state")
 func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	// TODO: Add validations.
+
 	// Obtain params from the request.
 	providerName := mux.Vars(r)["provider"]
 	errAuth, code, state := r.URL.Query().Get("error"),

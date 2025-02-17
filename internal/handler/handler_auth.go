@@ -85,14 +85,10 @@ func (h *Handler) Auth(w http.ResponseWriter, r *http.Request) {
 	// Obtain the OAuth "state" parameter.
 	state := encodeState(stateID, clientCallbackURL)
 	// Get the Auth URL of the provider.
-	authURL, err := provider.GetAuthURL(ctx, state)
-	if err != nil {
-		slog.ErrorContext(ctx, "error in GetAuthURL call", "provider", providerName, "error", err)
-		httputils.WriteErr(w, errutils.InternalServerError())
-		return
-	}
+	authURL := provider.GetAuthURL(ctx, state)
 
 	// Response headers.
+	// TODO: Add a common middleware for these headers.
 	headers := map[string]string{
 		"Location": authURL,
 		// The following headers make sure that the browser is not allowed to render the page

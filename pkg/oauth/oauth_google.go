@@ -15,6 +15,7 @@ import (
 	"github.com/lestrrat-go/jwx/v3/jwt"
 
 	"github.com/shivanshkc/authorizer/internal/utils/httputils"
+	"github.com/shivanshkc/authorizer/internal/utils/miscutils"
 )
 
 const (
@@ -23,6 +24,11 @@ const (
 	// Source: https://developers.google.com/identity/protocols/oauth2/web-server#exchange-authorization-code
 	googleTokenURL = "https://oauth2.googleapis.com/token"
 	googleJWKURL   = "https://www.googleapis.com/oauth2/v3/certs"
+)
+
+var (
+	// parsedGoogleAuthURL removes the need to repeatedly parse the auth URL.
+	parsedGoogleAuthURL = miscutils.MustParseURL(googleAuthURL)
 )
 
 // Google implements the Provider interface for Google.
@@ -87,12 +93,10 @@ func (g *Google) Name() string {
 	return "google"
 }
 
-func (g *Google) GetAuthURL(ctx context.Context, state string) (string, error) {
-	// Convert to Go's URL type to conveniently build the query string.
-	u, err := url.Parse(googleAuthURL)
-	if err != nil {
-		return "", fmt.Errorf("error in url.Parse call: %w", err)
-	}
+func (g *Google) GetAuthURL(ctx context.Context, state string) string {
+	var u = &url.URL{}
+	// Copy the auth URL value into local pointer. This must not modify the original URL variable.
+	*u = *parsedGoogleAuthURL
 
 	// Add all query parameters.
 	q := u.Query()
@@ -104,7 +108,7 @@ func (g *Google) GetAuthURL(ctx context.Context, state string) (string, error) {
 	q.Set("state", state)
 
 	u.RawQuery = q.Encode()
-	return u.String(), nil
+	return u.String()
 }
 
 func (g *Google) TokenFromCode(ctx context.Context, code string) (string, error) {
