@@ -18,7 +18,6 @@ import (
 )
 
 var (
-	errMissingRedirectURL  = errutils.BadRequest().WithReasonStr("redirect_url is missing")
 	errUnknownRedirectURL  = errutils.BadRequest().WithReasonStr("redirect_url is not allowed")
 	errUnsupportedProvider = errutils.BadRequest().WithReasonStr("provider is not supported")
 )
@@ -32,14 +31,21 @@ func (h *Handler) Auth(w http.ResponseWriter, r *http.Request) {
 	// Once authentication is done, the flow will end on this URL.
 	clientCallbackURL := r.URL.Query().Get("redirect_url")
 
-	// Client callback URL must be present.
-	if clientCallbackURL == "" {
-		slog.ErrorContext(ctx, "request has no redirect_url")
-		httputils.WriteErr(w, errMissingRedirectURL)
+	// Provider name validation.
+	if err := validateProvider(providerName); err != nil {
+		slog.ErrorContext(ctx, "invalid provider", "value", providerName, "error", err)
+		httputils.WriteErr(w, errutils.BadRequest().WithReasonErr(err))
 		return
 	}
 
-	// client callback URI must be one of the allowed ones.
+	// Client callback URL validation.
+	if err := validateClientCallbackURL(clientCallbackURL); err != nil {
+		slog.ErrorContext(ctx, "invalid client callback URL", "value", clientCallbackURL, "error", err)
+		httputils.WriteErr(w, errutils.BadRequest().WithReasonErr(err))
+		return
+	}
+
+	// Client callback URL  must be one of the allowed ones.
 	if !slices.Contains(h.config.AllowedRedirectURLs, clientCallbackURL) {
 		slog.ErrorContext(ctx, "request contains unknown redirect_url")
 		httputils.WriteErr(w, errUnknownRedirectURL)
