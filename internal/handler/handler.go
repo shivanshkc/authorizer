@@ -45,8 +45,7 @@ func (h *Handler) getProvider(providerName string) oauth.Provider {
 	switch providerName {
 	case h.googleProvider.Name():
 		return h.googleProvider
-	case h.discordProvider.Name():
-		return h.discordProvider
+	// More cases would come here as more providers are implemented.
 	default:
 		return nil
 	}
