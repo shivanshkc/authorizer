@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"slices"
 
 	"github.com/lestrrat-go/httprc/v3"
 	"github.com/lestrrat-go/jwx/v3/jwk"
@@ -29,6 +30,8 @@ const (
 var (
 	// parsedGoogleAuthURL removes the need to repeatedly parse the auth URL.
 	parsedGoogleAuthURL = miscutils.MustParseURL(googleAuthURL)
+	// googleIssuers is the list of valid values for the "iss" (issuer) claim in a Google ID token.
+	googleIssuers = []string{"accounts.google.com", "https://accounts.google.com"}
 )
 
 // Google implements the Provider interface for Google.
@@ -178,8 +181,8 @@ func (g *Google) DecodeToken(ctx context.Context, token string) (Claims, error) 
 	}
 
 	// Validate issuer. This could not be done with jwt.WithIssuer because there are two allowed values.
-	if iss, _ := parsed.Issuer(); iss != "accounts.google.com" && iss != "https://accounts.google.com" {
-		return Claims{}, fmt.Errorf("jwt has unknown issue: %s", iss)
+	if iss, _ := parsed.Issuer(); !slices.Contains(googleIssuers, iss) {
+		return Claims{}, fmt.Errorf("jwt has unknown issuer: %s", iss)
 	}
 
 	// Decode all claims.
