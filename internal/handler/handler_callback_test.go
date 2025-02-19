@@ -188,16 +188,12 @@ func TestHandler_Callback(t *testing.T) {
 		googleProvider: mProvider,
 	}
 
-	// For cookie verification.
-	mHandler.config.Application.BaseURL = "https://application.com"
-	expectedCookieDomain := "application.com"
-	expectSecureCookie := true
-
 	for _, tc := range []struct {
 		name                    string
 		providerFunc            func() *mockProvider
 		expectTokenFromCodeCall bool
 		expectDecodeTokenCall   bool
+		isLocalhost             bool // Required for cookie domain verification.
 		errSubstring            string
 	}{
 		{
@@ -243,6 +239,15 @@ func TestHandler_Callback(t *testing.T) {
 	} {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			// Decide on the cookie domain expectation based on application environment.
+			var expectedCookieDomain string
+			if tc.isLocalhost {
+				mHandler.config.Application.BaseURL = "http://localhost:8080"
+			} else {
+				mHandler.config.Application.BaseURL = "https://application.com"
+				expectedCookieDomain = "application.com"
+			}
+
 			// Populate the State ID Map. This must be empty by the end.
 			mHandler.stateIDMap.Store(mStateID, struct{}{})
 			// Provider to use for this test.
@@ -299,7 +304,7 @@ func TestHandler_Callback(t *testing.T) {
 			require.Equal(t, "/", cookie.Path, "Cookie path does not match")
 			require.Equal(t, expectedCookieDomain, cookie.Domain, "Cookie domain does not match")
 			require.NotEqual(t, 0, cookie.MaxAge, "Cookie max age does not match")
-			require.Equal(t, expectSecureCookie, cookie.Secure, "Cookie secure does not match")
+			require.True(t, cookie.Secure, "Cookie secure is not true")
 			require.True(t, cookie.HttpOnly, "Cookie httpOnly is not true")
 			require.Equal(t, http.SameSiteStrictMode, cookie.SameSite, "Cookie SameSite does not match")
 		})

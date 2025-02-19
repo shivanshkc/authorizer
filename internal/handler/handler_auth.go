@@ -59,7 +59,7 @@ func (h *Handler) Auth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Select provider as per the given name.
-	provider := h.getProvider(providerName)
+	provider := h.providerByName(providerName)
 	if provider == nil {
 		slog.ErrorContext(ctx, "provider is not implemented", "provider", providerName)
 		httputils.WriteErr(w, errUnsupportedProvider)

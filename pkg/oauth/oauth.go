@@ -10,6 +10,9 @@ type Provider interface {
 	// Name provides the name of the provider.
 	Name() string
 
+	// Issuers returns the list of valid "iss" claim values for the tokens of this Provider.
+	Issuers() []string
+
 	// GetAuthURL returns the URL to the auth page of the provider.
 	//
 	// The "state" parameter is returned as is in the provider's callback

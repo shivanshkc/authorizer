@@ -79,7 +79,7 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get the required provider.
-	provider := h.getProvider(providerName)
+	provider := h.providerByName(providerName)
 	if provider == nil {
 		slog.ErrorContext(ctx, "callback from unknown provider", "provider", providerName)
 		errorRedirect(w, errutils.InternalServerError(), oState.ClientCallbackURL)
@@ -104,12 +104,22 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: Use the claims to insert/update user in the DB.
 
+	// Cookie domain must not be set if the application is running on localhost.
+	//
+	// TODO: It will not work on ridiculous subdomains like localhost.application.com.
+	// TODO: Fix it and update unit tests.
+	var cookieDomain string
+	if !strings.HasPrefix(h.config.Application.BaseURL, "https://localhost") &&
+		!strings.HasPrefix(h.config.Application.BaseURL, "http://localhost") {
+		cookieDomain = httputils.TrimProtocol(h.config.Application.BaseURL)
+	}
+
 	// Set the cookie.
 	http.SetCookie(w, &http.Cookie{
 		Name:   accessTokenCookieName,
 		Value:  token,
 		Path:   "/",
-		Domain: httputils.TrimProtocol(h.config.Application.BaseURL),
+		Domain: cookieDomain,
 		// The cookie expires at the same time as the token.
 		MaxAge: int(time.Until(claims.ExpiresAt).Seconds()),
 		// Use secure mode when the application is running over HTTPS.

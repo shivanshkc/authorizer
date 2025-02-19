@@ -93,6 +93,10 @@ func (g *Google) Name() string {
 	return "google"
 }
 
+func (g *Google) Issuers() []string {
+	return googleIssuers
+}
+
 func (g *Google) GetAuthURL(ctx context.Context, state string) string {
 	var u = &url.URL{}
 	// Copy the auth URL value into local pointer. This must not modify the original URL variable.

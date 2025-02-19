@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"slices"
 	"sync"
 
 	"github.com/shivanshkc/authorizer/internal/config"
@@ -44,8 +45,8 @@ func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 	httputils.Write(w, http.StatusOK, nil, info)
 }
 
-// getProvider returns the provider for the given name.
-func (h *Handler) getProvider(providerName string) oauth.Provider {
+// providerByName returns the provider for the given name.
+func (h *Handler) providerByName(providerName string) oauth.Provider {
 	switch providerName {
 	case h.googleProvider.Name():
 		return h.googleProvider
@@ -53,4 +54,13 @@ func (h *Handler) getProvider(providerName string) oauth.Provider {
 	default:
 		return nil
 	}
+}
+
+// providerByIssuer returns the provider for the given token issuer.
+func (h *Handler) providerByIssuer(issuer string) oauth.Provider {
+	if slices.Contains(h.googleProvider.Issuers(), issuer) {
+		return h.googleProvider
+	}
+	// More cases would come here as more providers are implemented.
+	return nil
 }
