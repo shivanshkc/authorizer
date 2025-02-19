@@ -12,8 +12,12 @@ import (
 
 // Handler encapsulates all REST handlers.
 type Handler struct {
-	config   config.Config
-	stateIDs *sync.Map
+	config config.Config
+
+	// stateIDMap holds all state IDs for which the OAuth flow has started but the callback has not been invoked yet.
+	//
+	// Its role is to tackle CSRF vulnerabilities.
+	stateIDMap *sync.Map
 
 	googleProvider  oauth.Provider
 	discordProvider oauth.Provider
@@ -23,7 +27,7 @@ type Handler struct {
 func NewHandler(config config.Config, google, discord oauth.Provider) *Handler {
 	return &Handler{
 		config:          config,
-		stateIDs:        &sync.Map{},
+		stateIDMap:      &sync.Map{},
 		googleProvider:  google,
 		discordProvider: discord,
 	}

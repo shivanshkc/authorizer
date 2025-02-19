@@ -100,22 +100,22 @@ func TestHandler_Auth(t *testing.T) {
 	// Invoke the method to test.
 	mHandler.Auth(rr, req)
 
-	// Testable quantities about the state ID map.
+	// Testable quantities about the State ID Map.
 	var insertedStateIDAny any
 	var mapSize int
-	// Loop over the state ID map to populate the testable quantities.
-	mHandler.stateIDs.Range(func(key, value any) bool {
+	// Loop over the State ID Map to populate the testable quantities.
+	mHandler.stateIDMap.Range(func(key, value any) bool {
 		mapSize++
 		insertedStateIDAny = key
 		return true
 	})
 
-	// State ID map must have only one entry.
-	require.Equal(t, 1, mapSize, "State ID map has more than 1 entries")
+	// The State ID Map must have only one entry.
+	require.Equal(t, 1, mapSize, "State ID Map has more than 1 entries")
 
 	// State ID must be a string.
 	insertedStateID, ok := insertedStateIDAny.(string)
-	require.True(t, ok, "State ID inserted in the local map is not a string")
+	require.True(t, ok, "State ID inserted in State ID Map is not a string")
 
 	// State ID must be a UUID.
 	_, errUUID := uuid.Parse(insertedStateID)
@@ -123,7 +123,7 @@ func TestHandler_Auth(t *testing.T) {
 
 	// State ID must be deleted after expiry.
 	time.Sleep(stateIDExpiry + 500*time.Millisecond)
-	_, found := mHandler.stateIDs.Load(insertedStateIDAny)
+	_, found := mHandler.stateIDMap.Load(insertedStateIDAny)
 	require.False(t, found, "State ID was not deleted after expiry")
 
 	// Verify response.

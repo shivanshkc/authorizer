@@ -39,11 +39,11 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If the state ID is found in the local map, it guarantees that the request is genuine.
+	// If the state ID is found in the State ID Map, it guarantees that the request is genuine.
 	// Otherwise, it could be that the provider took too long to callback and the state ID got expired and cleaned up
 	// from the map or, it could be that it is a malicious request and someone is trying to impersonate the provider.
-	if _, present := h.stateIDs.LoadAndDelete(oState.ID); !present {
-		slog.ErrorContext(ctx, "state ID not found in the local map, failing request", "stateID", oState.ID)
+	if _, present := h.stateIDMap.LoadAndDelete(oState.ID); !present {
+		slog.ErrorContext(ctx, "state ID not found in the State ID Map, failing request", "stateID", oState.ID)
 		errorRedirect(w, errInvalidState, oState.ClientCallbackURL)
 		return
 	}

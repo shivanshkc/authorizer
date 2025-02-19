@@ -68,7 +68,7 @@ func (h *Handler) Auth(w http.ResponseWriter, r *http.Request) {
 
 	// Create and persist the state ID for better CSRF protection.
 	stateID := uuid.NewString()
-	h.stateIDs.Store(stateID, struct{}{})
+	h.stateIDMap.Store(stateID, struct{}{})
 
 	// Expire the state ID after some time.
 	go func() {
@@ -79,7 +79,7 @@ func (h *Handler) Auth(w http.ResponseWriter, r *http.Request) {
 
 		// Expire state ID will apt logs.
 		slog.InfoContext(ctx, "expiring state ID", "stateID", stateID)
-		if _, present := h.stateIDs.LoadAndDelete(stateID); !present {
+		if _, present := h.stateIDMap.LoadAndDelete(stateID); !present {
 			slog.InfoContext(ctx, "state ID utilized before expiry", "stateID", stateID)
 			return
 		}
