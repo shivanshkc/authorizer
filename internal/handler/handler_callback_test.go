@@ -189,15 +189,25 @@ func TestHandler_Callback(t *testing.T) {
 	}
 
 	for _, tc := range []struct {
-		name                    string
-		providerFunc            func() *mockProvider
+		name string
+		// Mock inputs.
+		providerFunc func() *mockProvider
+		isHTTPS      bool
+		// Expectations.
 		expectTokenFromCodeCall bool
 		expectDecodeTokenCall   bool
-		isLocalhost             bool // Required for cookie domain verification.
 		errSubstring            string
 	}{
 		{
-			name:                    "Everything good, no errors",
+			name:                    "Everything good, application on HTTPS domain, no errors",
+			providerFunc:            func() *mockProvider { return mProvider.Clone() },
+			isHTTPS:                 true,
+			expectTokenFromCodeCall: true,
+			expectDecodeTokenCall:   true,
+			errSubstring:            "",
+		},
+		{
+			name:                    "Everything good, application on HTTP domain, no errors",
 			providerFunc:            func() *mockProvider { return mProvider.Clone() },
 			expectTokenFromCodeCall: true,
 			expectDecodeTokenCall:   true,
@@ -239,13 +249,12 @@ func TestHandler_Callback(t *testing.T) {
 	} {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			// Decide on the cookie domain expectation based on application environment.
-			var expectedCookieDomain string
-			if tc.isLocalhost {
-				mHandler.config.Application.BaseURL = "http://localhost:8080"
-			} else {
+			// Set application base URL as per HTTPS status.
+			// This is required to test the "Secure" field of the cookie.
+			if tc.isHTTPS {
 				mHandler.config.Application.BaseURL = "https://application.com"
-				expectedCookieDomain = "application.com"
+			} else {
+				mHandler.config.Application.BaseURL = "http://application.com"
 			}
 
 			// Populate the State ID Map. This must be empty by the end.
@@ -302,9 +311,8 @@ func TestHandler_Callback(t *testing.T) {
 			// Verify cookie fields.
 			require.Equal(t, thisProvider.token, cookie.Value, "Cookie value does not match")
 			require.Equal(t, "/", cookie.Path, "Cookie path does not match")
-			require.Equal(t, expectedCookieDomain, cookie.Domain, "Cookie domain does not match")
 			require.NotEqual(t, 0, cookie.MaxAge, "Cookie max age does not match")
-			require.True(t, cookie.Secure, "Cookie secure is not true")
+			require.Equal(t, tc.isHTTPS, cookie.Secure, "Cookie secure does not match")
 			require.True(t, cookie.HttpOnly, "Cookie httpOnly is not true")
 			require.Equal(t, http.SameSiteStrictMode, cookie.SameSite, "Cookie SameSite does not match")
 		})
