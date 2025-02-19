@@ -53,7 +53,7 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 	// from the map or, it could be that it is a malicious request and someone is trying to impersonate the provider.
 	if _, present := h.stateIDMap.LoadAndDelete(oState.ID); !present {
 		slog.ErrorContext(ctx, "state ID not found in the State ID Map, failing request", "stateID", oState.ID)
-		errorRedirect(w, errInvalidState, oState.ClientCallbackURL)
+		errorRedirect(w, errutils.RequestTimeout(), oState.ClientCallbackURL)
 		return
 	}
 
