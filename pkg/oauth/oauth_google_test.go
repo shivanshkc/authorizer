@@ -197,11 +197,12 @@ func TestGoogle_DecodeToken(t *testing.T) {
 		issuer:   googleIssuers[0],
 		expiry:   expiresAt,
 		claims: Claims{
-			ExpiresAt:  expiresAt,
+			Iss:        googleIssuers[0],
+			Exp:        expiresAt,
 			Email:      "mockEmail",
 			GivenName:  "mockGivenName",
 			FamilyName: "mockFamilyName",
-			PictureURL: "mockPictureURL",
+			Picture:    "mockPictureURL",
 		},
 	}
 
@@ -289,7 +290,7 @@ func generateToken(input generateTokenInput) (string, error) {
 	builder.Claim("email", input.claims.Email)
 	builder.Claim("given_name", input.claims.GivenName)
 	builder.Claim("family_name", input.claims.FamilyName)
-	builder.Claim("picture", input.claims.PictureURL)
+	builder.Claim("picture", input.claims.Picture)
 
 	// Build the token. Note that this is not the JWT string yet, it requires signing.
 	token, err := builder.Build()

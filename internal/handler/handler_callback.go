@@ -112,7 +112,7 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 		// This will be required if Authorizer needs to be used with multiple subdomains.
 		Domain: "",
 		// The cookie expires at the same time as the token.
-		MaxAge: int(time.Until(claims.ExpiresAt).Seconds()),
+		MaxAge: int(time.Until(claims.Exp).Seconds()),
 		// Use secure mode when the application is running over HTTPS.
 		Secure:   strings.HasPrefix(h.config.Application.BaseURL, "https://"),
 		HttpOnly: true,

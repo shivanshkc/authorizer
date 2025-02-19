@@ -189,13 +189,12 @@ func (g *Google) DecodeToken(ctx context.Context, token string) (Claims, error) 
 	// Claims to return.
 	var claims Claims
 
-	// Attach the ExpiresAt claim.
-	expiry, found := parsed.Expiration()
-	if !found {
-		return Claims{}, fmt.Errorf("exp field is empty in JWT")
+	if err := parsed.Get("iss", &claims.Iss); err != nil {
+		return Claims{}, fmt.Errorf("failed to decode iss claim: %w", err)
 	}
-	claims.ExpiresAt = expiry
-
+	if err := parsed.Get("exp", &claims.Exp); err != nil {
+		return Claims{}, fmt.Errorf("failed to decode exp claim: %w", err)
+	}
 	if err := parsed.Get("email", &claims.Email); err != nil {
 		return Claims{}, fmt.Errorf("failed to decode email claim: %w", err)
 	}
@@ -205,7 +204,7 @@ func (g *Google) DecodeToken(ctx context.Context, token string) (Claims, error) 
 	if err := parsed.Get("family_name", &claims.FamilyName); err != nil {
 		return Claims{}, fmt.Errorf("failed to decode family_name claim: %w", err)
 	}
-	if err := parsed.Get("picture", &claims.PictureURL); err != nil {
+	if err := parsed.Get("picture", &claims.Picture); err != nil {
 		return Claims{}, fmt.Errorf("failed to decode picture claim: %w", err)
 	}
 

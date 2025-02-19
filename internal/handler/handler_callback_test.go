@@ -179,7 +179,7 @@ func TestHandler_Callback(t *testing.T) {
 		errTokenFromCode: nil,
 		token:            "mockToken.Darth.Vader",
 		errDecodeToken:   nil,
-		claims:           oauth.Claims{ExpiresAt: time.Now().Add(time.Hour)},
+		claims:           oauth.Claims{Exp: time.Now().Add(time.Hour)},
 	}
 
 	mHandler := &Handler{

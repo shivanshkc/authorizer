@@ -28,10 +28,11 @@ type Provider interface {
 
 // Claims contain the user data retrieved from an OAuth provider.
 type Claims struct {
-	ExpiresAt time.Time `json:"expires_at"`
+	Iss string    `json:"iss"`
+	Exp time.Time `json:"exp"`
 
 	Email      string `json:"email"`
 	GivenName  string `json:"given_name"`
 	FamilyName string `json:"family_name"`
-	PictureURL string `json:"picture_url"`
+	Picture    string `json:"picture"`
 }

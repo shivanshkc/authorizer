@@ -2,13 +2,16 @@ package handler
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
 
 	"github.com/shivanshkc/authorizer/internal/utils/errutils"
 	"github.com/shivanshkc/authorizer/internal/utils/httputils"
+	"github.com/shivanshkc/authorizer/pkg/oauth"
 )
 
 // Check performs an authentication check on the given request.
@@ -30,31 +33,24 @@ func (h *Handler) Check(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Split the token to parse the payload.
-	tokenSplit := strings.Split(cookie.Value, ".")
-	if len(tokenSplit) != 3 {
-		slog.ErrorContext(ctx, "token does not contain 3 parts", "parts", tokenSplit, "token", cookie.Value)
-		httputils.WriteErr(w, errutils.Unauthorized())
-		return
-	}
-
-	// Decode the payload of the token.
-	// This is necessary because we need the token issuer in order to decide which provider to use to validate it.
-	payloadBase64 := tokenSplit[1]
-	payload, err := base64.StdEncoding.DecodeString(payloadBase64)
+	// Get token issuer. This is necessary to decide which provider to use to verify the token.
+	issuer, err := issuerFromToken(cookie.Value)
 	if err != nil {
-		slog.ErrorContext(ctx, "Failed to decode token payload", "error", err)
+		slog.ErrorContext(ctx, "error in issuerFromToken call", "error", err)
 		httputils.WriteErr(w, errutils.Unauthorized())
 		return
 	}
 
-	// TODO: Get the issuer from the payload and decide on the provider.
-	_ = payload
+	// Get the provider to use.
+	provider := h.providerByIssuer(issuer)
+	if provider == nil {
+		slog.ErrorContext(ctx, "no providers for issuer", "issuer", issuer)
+		httputils.WriteErr(w, errutils.Unauthorized())
+		return
+	}
 
 	// Decode token for verification and claims.
-	//
-	// TODO: Decode on which provider to use based on token issuer.
-	claims, err := h.googleProvider.DecodeToken(ctx, cookie.Value)
+	claims, err := provider.DecodeToken(ctx, cookie.Value)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to decode token", "error", err)
 		httputils.WriteErr(w, errutils.Unauthorized())
@@ -64,8 +60,33 @@ func (h *Handler) Check(w http.ResponseWriter, r *http.Request) {
 	headers := map[string]string{
 		"X-Auth-Email":   claims.Email,
 		"X-Auth-Name":    claims.GivenName + " " + claims.FamilyName,
-		"X-Auth-Picture": claims.PictureURL,
+		"X-Auth-Picture": claims.Picture,
 	}
 
 	httputils.Write(w, http.StatusOK, headers, nil)
+}
+
+// issuerFromToken decodes the base64 encoded payload of the token and returns the value of the "iss" claim.
+func issuerFromToken(token string) (string, error) {
+	// Split the token to parse the payload.
+	tokenSplit := strings.Split(token, ".")
+	if len(tokenSplit) != 3 {
+		return "", fmt.Errorf("token expected to have 3 parts but had %d", len(tokenSplit))
+	}
+
+	// Decode the payload of the token.
+	// This is necessary because we need the token issuer in order to decide which provider to use to validate it.
+	payloadBase64 := tokenSplit[1]
+	payload, err := base64.RawURLEncoding.DecodeString(payloadBase64)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode token payload: %w", err)
+	}
+
+	// Unmarshal claims to struct to finally get the "iss" value.
+	var claims oauth.Claims
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		return "", fmt.Errorf("failed to unmarshal token claims: %w", err)
+	}
+
+	return claims.Iss, nil
 }
