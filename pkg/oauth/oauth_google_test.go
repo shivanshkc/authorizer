@@ -185,13 +185,19 @@ func TestGoogle_DecodeToken(t *testing.T) {
 	keySet, err := google.jwkCache.Lookup(ctx, googleJWKURL)
 	require.NoError(t, err, "Failed to lookup JWK")
 
+	nowTime := time.Now().UTC()
+	expiresAt := time.Date(nowTime.Year(), nowTime.Month(), nowTime.Day(),
+		// Expires after an hour.
+		nowTime.Hour()+1, nowTime.Minute(), 0, 0, time.UTC)
+
 	// Inputs required to create a valid token.
 	tokenInput := generateTokenInput{
 		keySet:   keySet,
 		audience: google.clientID,
 		issuer:   googleIssuers[0],
-		expiry:   time.Now().Add(time.Hour),
+		expiry:   expiresAt,
 		claims: Claims{
+			ExpiresAt:  expiresAt,
 			Email:      "mockEmail",
 			GivenName:  "mockGivenName",
 			FamilyName: "mockFamilyName",
