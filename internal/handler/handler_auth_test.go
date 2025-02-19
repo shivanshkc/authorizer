@@ -1,11 +1,14 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/require"
 
@@ -61,19 +64,9 @@ func TestHandler_Auth_Validations(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			// Mock HTTP response.
-			rr := httptest.NewRecorder()
-
-			// Mock HTTP request.
-			req, err := http.NewRequest(http.MethodGet, "/mock", nil)
-			require.NoError(t, err, "Failed to create HTTP request")
-
-			// Set path params.
-			req = mux.SetURLVars(req, map[string]string{"provider": tc.inputProvider})
-			// Set query params.
-			q := req.URL.Query()
-			q.Set("redirect_url", tc.inputRedirectURL)
-			req.URL.RawQuery = q.Encode()
+			// Create mock response writer and request.
+			rr, req, err := createMockAuthWR(tc.inputProvider, tc.inputRedirectURL)
+			require.NoError(t, err, "Failed to create mock response writer and request")
 
 			// Prepare and call the method to test.
 			mHandler.googleProvider = tc.mockProvider
@@ -84,4 +77,74 @@ func TestHandler_Auth_Validations(t *testing.T) {
 			require.Contains(t, rr.Body.String(), tc.errSubstring)
 		})
 	}
+}
+
+func TestHandler_Auth(t *testing.T) {
+	// Mock quantities for test.
+	mProvider := "google"
+	mRedirectURL := "https://allowed.com"
+	mProviderAuthURL := "https://auth.google.com"
+
+	// Create the mock handler.
+	mHandler := NewHandler(
+		config.Config{AllowedRedirectURLs: []string{mRedirectURL}},
+		&mockProvider{name: mProvider, authURL: mProviderAuthURL}, nil)
+
+	// Changing the state ID expiry to a shorter time so the test doesn't take too long.
+	stateIDExpiry = time.Second
+
+	// Create mock response writer and request.
+	rr, req, err := createMockAuthWR(mProvider, mRedirectURL)
+	require.NoError(t, err, "Failed to create mock response writer and request")
+
+	// Invoke the method to test.
+	mHandler.Auth(rr, req)
+
+	// Testable quantities about the state ID map.
+	var insertedStateIDAny any
+	var mapSize int
+	// Loop over the state ID map to populate the testable quantities.
+	mHandler.stateIDs.Range(func(key, value any) bool {
+		mapSize++
+		insertedStateIDAny = key
+		return true
+	})
+
+	// State ID map must have only one entry.
+	require.Equal(t, 1, mapSize, "State ID map has more than 1 entries")
+
+	// State ID must be a string.
+	insertedStateID, ok := insertedStateIDAny.(string)
+	require.True(t, ok, "State ID inserted in the local map is not a string")
+
+	// State ID must be a UUID.
+	_, errUUID := uuid.Parse(insertedStateID)
+	require.NoError(t, errUUID, "State ID is not a valid UUID")
+
+	// State ID must be deleted after expiry.
+	time.Sleep(stateIDExpiry + 500*time.Millisecond)
+	_, found := mHandler.stateIDs.Load(insertedStateIDAny)
+	require.False(t, found, "State ID was not deleted after expiry")
+
+	// Verify response.
+	require.Equal(t, http.StatusFound, rr.Code)
+	require.Equal(t, mProviderAuthURL, rr.Header().Get("Location"))
+}
+
+// createMockAuthWR creates a mock ResponseWriter and Request to test the Auth handler.
+func createMockAuthWR(provider, redirectURL string) (*httptest.ResponseRecorder, *http.Request, error) {
+	// Mock HTTP request.
+	req, err := http.NewRequest(http.MethodGet, "/mock", nil)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create HTTP request")
+	}
+
+	// Set path params.
+	req = mux.SetURLVars(req, map[string]string{"provider": provider})
+	// Set query params.
+	q := req.URL.Query()
+	q.Set("redirect_url", redirectURL)
+	req.URL.RawQuery = q.Encode()
+
+	return httptest.NewRecorder(), req, nil
 }

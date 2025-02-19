@@ -17,6 +17,12 @@ import (
 	"github.com/shivanshkc/authorizer/internal/utils/httputils"
 )
 
+// stateIDExpiry is the max allowed time for a provider to invoke the callback API.
+// If the provider is too late, the state ID will be expired and the flow will fail.
+//
+// This is a var and not a const so it can be modified for testing purposes.
+var stateIDExpiry = time.Minute
+
 var (
 	errUnknownRedirectURL  = errutils.BadRequest().WithReasonStr("redirect_url is not allowed")
 	errUnsupportedProvider = errutils.BadRequest().WithReasonStr("provider is not supported")
@@ -68,10 +74,8 @@ func (h *Handler) Auth(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		// Don't use the HTTP request's context here.
 		ctx := context.Background()
-
-		// This is the max allowed time for the provider to invoke the callback API.
-		// If the provider is too late, the state ID will be expired and the flow will fail.
-		time.Sleep(time.Minute)
+		// Allow the provider some time to invoke the callback API before timing out the flow.
+		time.Sleep(stateIDExpiry)
 
 		// Expire state ID will apt logs.
 		slog.InfoContext(ctx, "expiring state ID", "stateID", stateID)
