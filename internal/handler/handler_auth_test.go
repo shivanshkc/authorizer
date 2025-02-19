@@ -66,6 +66,7 @@ func TestHandler_Auth_Validations(t *testing.T) {
 			errSubstring:     errUnsupportedProvider.Error(),
 		},
 	} {
+		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			// Create mock response writer and request.
 			rr, req, err := createMockAuthWR(tc.inputProvider, tc.inputRedirectURL)

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -16,6 +18,7 @@ import (
 
 	"github.com/shivanshkc/authorizer/internal/config"
 	"github.com/shivanshkc/authorizer/internal/utils/errutils"
+	"github.com/shivanshkc/authorizer/pkg/oauth"
 )
 
 func TestHandler_Callback_StateValidation(t *testing.T) {
@@ -72,7 +75,205 @@ func TestHandler_Callback_StateValidation(t *testing.T) {
 			parsed, err := url.Parse(w.Header().Get("Location"))
 			require.NoError(t, err, "Expected Location header to be a valid URL")
 			require.Equal(t, tc.expectedLocation, parsed.Scheme+"://"+parsed.Host)
-			require.Contains(t, tc.errSubstring, parsed.Query().Get("error"))
+			require.Contains(t, parsed.Query().Get("error"), tc.errSubstring)
+		})
+	}
+}
+
+func TestHandler_Callback_Validations(t *testing.T) {
+	// Common mock inputs and implementations.
+	mStateID, mCCU := uuid.NewString(), "https://allowed.com"
+	mState := base64.StdEncoding.EncodeToString([]byte(`{"ID":"` + mStateID + `","ClientCallbackURL":"` + mCCU + `"}`))
+	mHandler := &Handler{config: config.Config{AllowedRedirectURLs: []string{mCCU}}, stateIDMap: &sync.Map{}}
+
+	for _, tc := range []struct {
+		name string
+		// Mock inputs.
+		inputProvider string
+		inputCode     string
+		inputError    string
+		// Expectations.
+		expectedLocation string
+		errSubstring     string
+	}{
+		{
+			name:             "Too long provider length",
+			inputProvider:    strings.Repeat("a", 21),
+			expectedLocation: mCCU,
+			errSubstring:     errutils.InternalServerError().Error(),
+		},
+		{
+			name:             "Invalid provider character",
+			inputProvider:    "google$$",
+			expectedLocation: mCCU,
+			errSubstring:     errutils.InternalServerError().Error(),
+		},
+		{
+			name:             "Absent auth code",
+			inputProvider:    "google",
+			inputCode:        "",
+			expectedLocation: mCCU,
+			errSubstring:     errutils.InternalServerError().Error(),
+		},
+		{
+			name:             "Too long auth code",
+			inputProvider:    strings.Repeat("a", 401),
+			inputCode:        "",
+			expectedLocation: mCCU,
+			errSubstring:     errutils.InternalServerError().Error(),
+		},
+		{
+			name:             "Invalid characters in auth code",
+			inputProvider:    "google",
+			inputCode:        "code$$",
+			expectedLocation: mCCU,
+			errSubstring:     errutils.InternalServerError().Error(),
+		},
+		{
+			name:             "Error received from provider",
+			inputProvider:    "google",
+			inputCode:        "valid-code",
+			inputError:       "access_denied",
+			expectedLocation: mCCU,
+			errSubstring:     "access_denied",
+		},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			// Populate the State ID Map. This must be empty by the end.
+			mHandler.stateIDMap.Store(mStateID, struct{}{})
+
+			// Create mock response writer and request.
+			w, r, err := createMockCallbackWR(tc.inputProvider, mState, tc.inputCode, tc.inputError)
+			require.NoError(t, err, "Failed to create mock callback response writer and request")
+
+			// Invoke the method to test.
+			mHandler.Callback(w, r)
+
+			// Check if the state ID was deleted from the State ID Map.
+			_, found := mHandler.stateIDMap.LoadAndDelete(mStateID)
+			require.False(t, found, "Expected state ID to be deleted but it was not")
+
+			// Verify response code and headers.
+			require.Equal(t, http.StatusFound, w.Code)
+			// Verify the redirection URL.
+			parsed, err := url.Parse(w.Header().Get("Location"))
+			require.NoError(t, err, "Expected Location header to be a valid URL")
+			require.Equal(t, tc.expectedLocation, parsed.Scheme+"://"+parsed.Host)
+			// Check the error query parameter.
+			require.Contains(t, parsed.Query().Get("error"), tc.errSubstring)
+		})
+	}
+}
+
+func TestHandler_Callback(t *testing.T) {
+	// Common mock inputs.
+	errMock := errors.New("mock error")
+	mStateID, mCCU := uuid.NewString(), "https://allowed.com"
+	mState := base64.StdEncoding.EncodeToString([]byte(`{"ID":"` + mStateID + `","ClientCallbackURL":"` + mCCU + `"}`))
+
+	// Common mock implementations.
+	mProvider := &mockProvider{
+		name:             "google",
+		errTokenFromCode: nil,
+		token:            "mockToken.Darth.Vader",
+		errDecodeToken:   nil,
+		claims:           oauth.Claims{ExpiresAt: time.Now().Add(time.Hour)},
+	}
+
+	mHandler := &Handler{
+		config:         config.Config{AllowedRedirectURLs: []string{mCCU}},
+		stateIDMap:     &sync.Map{},
+		googleProvider: mProvider,
+	}
+
+	// For cookie verification.
+	mHandler.config.Application.BaseURL = "https://application.com"
+	expectedCookieDomain := "application.com"
+	expectSecureCookie := true
+
+	for _, tc := range []struct {
+		name         string
+		providerFunc func() *mockProvider
+		errSubstring string
+	}{
+		{
+			name:         "Everything good, no errors",
+			providerFunc: func() *mockProvider { return mProvider },
+			errSubstring: "",
+		},
+		{
+			name: "Unknown provider",
+			providerFunc: func() *mockProvider {
+				p := mProvider.Clone()
+				p.name += "-unknown"
+				return p
+			},
+			errSubstring: errutils.InternalServerError().Error(),
+		},
+		{
+			name: "TokenFromCode method returns error",
+			providerFunc: func() *mockProvider {
+				p := mProvider.Clone()
+				p.errTokenFromCode = errMock
+				return p
+			},
+			errSubstring: errutils.InternalServerError().Error(),
+		},
+		{
+			name: "DecodeToken method returns error",
+			providerFunc: func() *mockProvider {
+				p := mProvider.Clone()
+				p.errDecodeToken = errMock
+				return p
+			},
+			errSubstring: errutils.InternalServerError().Error(),
+		},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			// Populate the State ID Map. This must be empty by the end.
+			mHandler.stateIDMap.Store(mStateID, struct{}{})
+			// Provider to use for this test.
+			thisProvider := tc.providerFunc()
+			mHandler.googleProvider = thisProvider
+
+			// Create mock response writer and request.
+			w, r, err := createMockCallbackWR(mProvider.name, mState, "anything", "")
+			require.NoError(t, err, "Failed to create mock callback response writer and request")
+
+			// Invoke the method to test.
+			mHandler.Callback(w, r)
+
+			// Check if the state ID was deleted from the State ID Map.
+			_, found := mHandler.stateIDMap.LoadAndDelete(mStateID)
+			require.False(t, found, "Expected state ID to be deleted but it was not")
+
+			// Verify response code.
+			require.Equal(t, http.StatusFound, w.Code)
+			// Verify redirection URL.
+			parsed, err := url.Parse(w.Header().Get("Location"))
+			require.NoError(t, err, "Expected Location header to be a valid URL")
+			require.Equal(t, mCCU, parsed.Scheme+"://"+parsed.Host)
+
+			// Verify in case of error.
+			if tc.errSubstring != "" {
+				require.Contains(t, parsed.Query().Get("error"), tc.errSubstring)
+				return
+			}
+
+			// Verify success behaviour.
+			require.Equal(t, parsed.Query().Get("provider"), mProvider.name)
+			// Get the cookie from the response.
+			cookie := w.Result().Cookies()[0]
+			// Verify cookie fields.
+			require.Equal(t, thisProvider.token, cookie.Value, "Cookie value does not match")
+			require.Equal(t, "/", cookie.Path, "Cookie path does not match")
+			require.Equal(t, expectedCookieDomain, cookie.Domain, "Cookie domain does not match")
+			require.NotEqual(t, 0, cookie.MaxAge, "Cookie max age does not match")
+			require.Equal(t, expectSecureCookie, cookie.Secure, "Cookie secure does not match")
+			require.True(t, cookie.HttpOnly, "Cookie httpOnly is not true")
+			require.Equal(t, http.SameSiteStrictMode, cookie.SameSite, "Cookie SameSite does not match")
 		})
 	}
 }

@@ -25,8 +25,8 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 	// Obtain params from the request.
 	providerName := mux.Vars(r)["provider"]
 	state, errAuth, code := r.URL.Query().Get("state"),
-		r.URL.Query().Get("code"),
-		r.URL.Query().Get("error")
+		r.URL.Query().Get("error"),
+		r.URL.Query().Get("code")
 
 	// State parameter validation.
 	if err := validateState(state); err != nil {

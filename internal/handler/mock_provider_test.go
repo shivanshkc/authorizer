@@ -41,3 +41,10 @@ func (m *mockProvider) DecodeToken(context.Context, string) (oauth.Claims, error
 	}
 	return m.claims, nil
 }
+
+// Clone is a utility method to quickly create a copy.
+func (m *mockProvider) Clone() *mockProvider {
+	clone := &mockProvider{}
+	*clone = *m
+	return clone
+}
