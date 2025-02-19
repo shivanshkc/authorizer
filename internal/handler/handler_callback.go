@@ -6,12 +6,17 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 
 	"github.com/shivanshkc/authorizer/internal/utils/errutils"
 	"github.com/shivanshkc/authorizer/internal/utils/httputils"
 )
+
+// accessTokenCookieName is the name of the cookie that holds the access token (or the ID token).
+const accessTokenCookieName = "session"
 
 // errInvalidState is used when the OAuth flow fails due to an invalid state parameter in the callback API.
 // The user is redirected and this error is attached to the URL as a query parameter.
@@ -79,12 +84,24 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = claims
-	// TODO: Redirect with correct encoding, cookies and security headers.
+	// TODO: Use the claims to insert/update user in the DB.
+
+	// Set the cookie.
+	http.SetCookie(w, &http.Cookie{
+		Name:   accessTokenCookieName,
+		Value:  token,
+		Path:   "/",
+		Domain: httputils.TrimProtocol(h.config.Application.BaseURL),
+		// The cookie expires at the same time as the token.
+		MaxAge: int(time.Until(claims.ExpiresAt).Seconds()),
+		// Use secure mode when the application is running over HTTPS.
+		Secure:   strings.HasPrefix(h.config.Application.BaseURL, "https://"),
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+	})
 
 	// Success redirect URL.
-	// We don't need to verify the token in this flow since it is coming directly from the provider.
-	redirectURL := fmt.Sprintf("%s?token=%s&provider=%s", oState.ClientCallbackURL, token, providerName)
+	redirectURL := fmt.Sprintf("%s?provider=%s", oState.ClientCallbackURL, providerName)
 	headers := map[string]string{"Location": redirectURL}
 	httputils.Write(w, http.StatusFound, headers, nil)
 }

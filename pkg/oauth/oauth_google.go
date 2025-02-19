@@ -185,8 +185,16 @@ func (g *Google) DecodeToken(ctx context.Context, token string) (Claims, error) 
 		return Claims{}, fmt.Errorf("jwt has unknown issuer: %s", iss)
 	}
 
-	// Decode all claims.
+	// Claims to return.
 	var claims Claims
+
+	// Attach the ExpiresAt claim.
+	expiry, found := parsed.Expiration()
+	if !found {
+		return Claims{}, fmt.Errorf("exp field is empty in JWT")
+	}
+	claims.ExpiresAt = expiry
+
 	if err := parsed.Get("email", &claims.Email); err != nil {
 		return Claims{}, fmt.Errorf("failed to decode email claim: %w", err)
 	}
