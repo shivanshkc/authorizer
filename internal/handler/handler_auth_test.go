@@ -21,11 +21,14 @@ func TestHandler_Auth_Validations(t *testing.T) {
 	mHandler := &Handler{config: config.Config{AllowedRedirectURLs: []string{"https://allowed.com"}}}
 
 	for _, tc := range []struct {
-		name             string
-		mockProvider     oauth.Provider
+		name string
+		// Mock implementations.
+		mockProvider oauth.Provider
+		// Request inputs.
 		inputProvider    string
 		inputRedirectURL string
-		errSubstring     string
+		// Expectations
+		errSubstring string
 	}{
 		{
 			name:          "Too long provider length",
@@ -50,13 +53,13 @@ func TestHandler_Auth_Validations(t *testing.T) {
 			errSubstring:     errInvalidCCU.Error(),
 		},
 		{
-			name:             "redirect_url not present in allow list",
+			name:             "Allow list does not contain the redirect_url",
 			inputProvider:    mProvider.name,
 			inputRedirectURL: mHandler.config.AllowedRedirectURLs[0] + "-random",
 			errSubstring:     errUnknownRedirectURL.Error(),
 		},
 		{
-			name:             "unknown provider",
+			name:             "Unknown provider",
 			mockProvider:     mProvider,
 			inputProvider:    mProvider.name + "-random",
 			inputRedirectURL: mHandler.config.AllowedRedirectURLs[0],
