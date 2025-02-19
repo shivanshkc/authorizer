@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/shivanshkc/authorizer/pkg/oauth"
 )
@@ -13,9 +14,11 @@ type mockProvider struct {
 	// To mock the GetAuthURL method.
 	authURL string
 	// To mock the TokenFromCode method.
+	argTokenFromCode string
 	errTokenFromCode error
 	token            string
 	// To mock the DecodeToken method.
+	argDecodeToken string
 	errDecodeToken error
 	claims         oauth.Claims
 }
@@ -28,14 +31,17 @@ func (m *mockProvider) GetAuthURL(context.Context, string) string {
 	return m.authURL
 }
 
-func (m *mockProvider) TokenFromCode(context.Context, string) (string, error) {
+func (m *mockProvider) TokenFromCode(c context.Context, s string) (string, error) {
+	fmt.Println("INVOKED:", s)
+	m.argTokenFromCode = s
 	if m.errTokenFromCode != nil {
 		return "", m.errTokenFromCode
 	}
 	return m.token, nil
 }
 
-func (m *mockProvider) DecodeToken(context.Context, string) (oauth.Claims, error) {
+func (m *mockProvider) DecodeToken(c context.Context, s string) (oauth.Claims, error) {
+	m.argDecodeToken = s
 	if m.errDecodeToken != nil {
 		return oauth.Claims{}, m.errDecodeToken
 	}

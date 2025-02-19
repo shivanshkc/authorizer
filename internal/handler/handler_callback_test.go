@@ -170,6 +170,7 @@ func TestHandler_Callback(t *testing.T) {
 	// Common mock inputs.
 	errMock := errors.New("mock error")
 	mStateID, mCCU := uuid.NewString(), "https://allowed.com"
+	mockCode := "4/0ASVgi3Iwlq42Bl8wh6-XUEpdSNFremRaxzXPWpRZxqYWW-xGo54-DAV94ZbLKx033sG5qA"
 	mState := base64.StdEncoding.EncodeToString([]byte(`{"ID":"` + mStateID + `","ClientCallbackURL":"` + mCCU + `"}`))
 
 	// Common mock implementations.
@@ -193,14 +194,18 @@ func TestHandler_Callback(t *testing.T) {
 	expectSecureCookie := true
 
 	for _, tc := range []struct {
-		name         string
-		providerFunc func() *mockProvider
-		errSubstring string
+		name                    string
+		providerFunc            func() *mockProvider
+		expectTokenFromCodeCall bool
+		expectDecodeTokenCall   bool
+		errSubstring            string
 	}{
 		{
-			name:         "Everything good, no errors",
-			providerFunc: func() *mockProvider { return mProvider },
-			errSubstring: "",
+			name:                    "Everything good, no errors",
+			providerFunc:            func() *mockProvider { return mProvider.Clone() },
+			expectTokenFromCodeCall: true,
+			expectDecodeTokenCall:   true,
+			errSubstring:            "",
 		},
 		{
 			name: "Unknown provider",
@@ -209,7 +214,9 @@ func TestHandler_Callback(t *testing.T) {
 				p.name += "-unknown"
 				return p
 			},
-			errSubstring: errutils.InternalServerError().Error(),
+			expectTokenFromCodeCall: false,
+			expectDecodeTokenCall:   false,
+			errSubstring:            errutils.InternalServerError().Error(),
 		},
 		{
 			name: "TokenFromCode method returns error",
@@ -218,7 +225,9 @@ func TestHandler_Callback(t *testing.T) {
 				p.errTokenFromCode = errMock
 				return p
 			},
-			errSubstring: errutils.InternalServerError().Error(),
+			expectTokenFromCodeCall: true,
+			expectDecodeTokenCall:   false,
+			errSubstring:            errutils.InternalServerError().Error(),
 		},
 		{
 			name: "DecodeToken method returns error",
@@ -227,7 +236,9 @@ func TestHandler_Callback(t *testing.T) {
 				p.errDecodeToken = errMock
 				return p
 			},
-			errSubstring: errutils.InternalServerError().Error(),
+			expectTokenFromCodeCall: true,
+			expectDecodeTokenCall:   true,
+			errSubstring:            errutils.InternalServerError().Error(),
 		},
 	} {
 		tc := tc
@@ -239,7 +250,7 @@ func TestHandler_Callback(t *testing.T) {
 			mHandler.googleProvider = thisProvider
 
 			// Create mock response writer and request.
-			w, r, err := createMockCallbackWR(mProvider.name, mState, "anything", "")
+			w, r, err := createMockCallbackWR(mProvider.name, mState, mockCode, "")
 			require.NoError(t, err, "Failed to create mock callback response writer and request")
 
 			// Invoke the method to test.
@@ -248,6 +259,23 @@ func TestHandler_Callback(t *testing.T) {
 			// Check if the state ID was deleted from the State ID Map.
 			_, found := mHandler.stateIDMap.LoadAndDelete(mStateID)
 			require.False(t, found, "Expected state ID to be deleted but it was not")
+
+			// Verify if the provider methods were invoked and with correct arguments.
+			if tc.expectTokenFromCodeCall {
+				require.Equal(t, mockCode, thisProvider.argTokenFromCode,
+					"TokenFromCode was not called with correct arguments")
+			} else {
+				require.Equal(t, "", thisProvider.argTokenFromCode,
+					"TokenFromCode unexpectedly called, was the mockProvider instance correctly reset?")
+			}
+
+			if tc.expectDecodeTokenCall {
+				require.Equal(t, thisProvider.token, thisProvider.argDecodeToken,
+					"DecodeToken was not called with correct arguments")
+			} else {
+				require.Equal(t, "", thisProvider.argDecodeToken,
+					"DecodeToken unexpectedly called, was the mockProvider instance correctly reset?")
+			}
 
 			// Verify response code.
 			require.Equal(t, http.StatusFound, w.Code)

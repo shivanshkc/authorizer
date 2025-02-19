@@ -11,14 +11,14 @@ var (
 	errInvalidCCU      = errors.New("redirect_url must be present, must be upto 200 characters and a valid url")
 	errInvalidState    = errors.New("state must be present and must be upto 400 characters")
 	errInvalidCode     = errors.New("code must be present and must be upto 200 characters and must include only" +
-		"a-z, A-Z, - and _")
+		"a-z, A-Z, 0-9, /, - and _")
 
 	errMalformedState = errors.New("state is malformed")
 )
 
 var (
 	providerRegex = regexp.MustCompile(`^[a-z0-9_-]+$`)
-	authCodeRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+	authCodeRegex = regexp.MustCompile(`^[a-zA-Z0-9/_-]+$`)
 )
 
 // validateProvider validates the provider name parameter when received from an external user.
