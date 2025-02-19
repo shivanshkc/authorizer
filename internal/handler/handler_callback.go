@@ -18,15 +18,9 @@ import (
 // accessTokenCookieName is the name of the cookie that holds the access token (or the ID token).
 const accessTokenCookieName = "session"
 
-// errInvalidState is used when the OAuth flow fails due to an invalid state parameter in the callback API.
-// The user is redirected and this error is attached to the URL as a query parameter.
-var errInvalidState = errors.New("invalid oauth state")
-
 // Callback handles the provider's OAuth callback.
 func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-
-	// TODO: Add validations.
 
 	// Obtain params from the request.
 	providerName := mux.Vars(r)["provider"]
@@ -34,13 +28,23 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 		r.URL.Query().Get("code"),
 		r.URL.Query().Get("state")
 
-	// Attempt to decode state.
+	// State parameter validation.
+	if err := validateState(state); err != nil {
+		slog.ErrorContext(ctx, "invalid state", "value", state, "error", err)
+		// Since the state is invalid, the actual clientCallbackURL is unknown,
+		// and so we fall back to the first allowed redirect URL.
+		errorRedirect(w, errInvalidState, h.config.AllowedRedirectURLs[0])
+		return
+	}
+
+	// Attempt to decode state. This is done before any other validations because we need the Client Callback URL to
+	// redirect to, even in case of errors.
 	oState, err := decodeState(state)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to decode state, this should never happen", "error", err)
 		// Since the state is invalid, the actual clientCallbackURL is unknown,
 		// and so we fall back to the first allowed redirect URL.
-		errorRedirect(w, errInvalidState, h.config.AllowedRedirectURLs[0])
+		errorRedirect(w, errMalformedState, h.config.AllowedRedirectURLs[0])
 		return
 	}
 
@@ -50,6 +54,20 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 	if _, present := h.stateIDMap.LoadAndDelete(oState.ID); !present {
 		slog.ErrorContext(ctx, "state ID not found in the State ID Map, failing request", "stateID", oState.ID)
 		errorRedirect(w, errInvalidState, oState.ClientCallbackURL)
+		return
+	}
+
+	// Provider name validation.
+	if err := validateProvider(providerName); err != nil {
+		slog.ErrorContext(ctx, "invalid provider in callback", "value", providerName, "error", err)
+		errorRedirect(w, errutils.InternalServerError(), oState.ClientCallbackURL)
+		return
+	}
+
+	// Authorization code validation.
+	if err := validateAuthCode(code); err != nil {
+		slog.ErrorContext(ctx, "invalid code in callback", "value", code, "error", err)
+		errorRedirect(w, errutils.InternalServerError(), oState.ClientCallbackURL)
 		return
 	}
 
@@ -63,7 +81,7 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 	// Get the required provider.
 	provider := h.getProvider(providerName)
 	if provider == nil {
-		slog.ErrorContext(ctx, "callback from unknown provider, this should never happen", "provider", providerName)
+		slog.ErrorContext(ctx, "callback from unknown provider", "provider", providerName)
 		errorRedirect(w, errutils.InternalServerError(), oState.ClientCallbackURL)
 		return
 	}
