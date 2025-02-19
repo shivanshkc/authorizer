@@ -14,9 +14,6 @@ import (
 	"github.com/lestrrat-go/httprc/v3"
 	"github.com/lestrrat-go/jwx/v3/jwk"
 	"github.com/lestrrat-go/jwx/v3/jwt"
-
-	"github.com/shivanshkc/authorizer/internal/utils/httputils"
-	"github.com/shivanshkc/authorizer/internal/utils/miscutils"
 )
 
 const (
@@ -28,8 +25,8 @@ const (
 )
 
 var (
-	// parsedGoogleAuthURL removes the need to repeatedly parse the auth URL.
-	parsedGoogleAuthURL = miscutils.MustParseURL(googleAuthURL)
+	// parsedGoogleAuthURL mitigates the need to repeatedly parse the auth URL.
+	parsedGoogleAuthURL = mustParseURL(googleAuthURL)
 	// googleIssuers is the list of valid values for the "iss" (issuer) claim in a Google ID token.
 	googleIssuers = []string{"accounts.google.com", "https://accounts.google.com"}
 )
@@ -145,7 +142,7 @@ func (g *Google) TokenFromCode(ctx context.Context, code string) (string, error)
 	defer func() { _ = res.Body.Close() }()
 
 	// Check if the request failed.
-	if !httputils.Is2xx(res.StatusCode) {
+	if res.StatusCode/100 != 2 {
 		// Decode response body only for logging.
 		resBody, err := io.ReadAll(res.Body)
 		if err != nil {
