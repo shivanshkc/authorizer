@@ -14,6 +14,12 @@ import (
 	"github.com/shivanshkc/authorizer/pkg/oauth"
 )
 
+const (
+	xAuthEmailHeader   = "X-Auth-Email"
+	xAuthNameHeader    = "X-Auth-Name"
+	xAuthPictureHeader = "X-Auth-Picture"
+)
+
 // Check performs an authentication check on the given request.
 func (h *Handler) Check(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -58,9 +64,9 @@ func (h *Handler) Check(w http.ResponseWriter, r *http.Request) {
 	}
 
 	headers := map[string]string{
-		"X-Auth-Email":   claims.Email,
-		"X-Auth-Name":    claims.GivenName + " " + claims.FamilyName,
-		"X-Auth-Picture": claims.Picture,
+		xAuthEmailHeader:   claims.Email,
+		xAuthNameHeader:    claims.GivenName + " " + claims.FamilyName,
+		xAuthPictureHeader: claims.Picture,
 	}
 
 	httputils.Write(w, http.StatusOK, headers, nil)
