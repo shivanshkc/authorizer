@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -86,10 +87,13 @@ func (h *Handler) Auth(w http.ResponseWriter, r *http.Request) {
 		slog.WarnContext(ctx, "state ID expired", "stateID", stateID)
 	}()
 
+	// Generate code verifier and challenge for PKCE (Proof Key for Code Exchange).
+	codeVerifier, codeChallenge := getPKCE()
+
 	// Obtain the OAuth "state" parameter.
-	state := encodeState(stateID, clientCallbackURL)
+	state := encodeState(stateID, codeVerifier, clientCallbackURL)
 	// Get the Auth URL of the provider.
-	authURL := provider.GetAuthURL(ctx, state)
+	authURL := provider.GetAuthURL(ctx, state, codeChallenge)
 
 	// Response headers.
 	headers := map[string]string{"Location": authURL}
@@ -100,13 +104,15 @@ func (h *Handler) Auth(w http.ResponseWriter, r *http.Request) {
 // oAuthState is encoded and used as the "state" parameter during the OAuth flow.
 type oAuthState struct {
 	// ID makes the state unique
-	ID                string
+	ID string
+	// CodeVerifier is for PKCE (Proof Key for Code Exchange).
+	CodeVerifier      string
 	ClientCallbackURL string
 }
 
 // encodeState combines the given clientCallbackURL with a salt to create a unique state string.
-func encodeState(id, clientCallbackURL string) string {
-	s, _ := json.Marshal(oAuthState{ClientCallbackURL: clientCallbackURL, ID: id})
+func encodeState(id, cv, ccu string) string {
+	s, _ := json.Marshal(oAuthState{ID: id, CodeVerifier: cv, ClientCallbackURL: ccu})
 	return base64.StdEncoding.EncodeToString(s)
 }
 
@@ -124,4 +130,12 @@ func decodeState(state string) (oAuthState, error) {
 	}
 
 	return oState, nil
+}
+
+// getPKCE returns the code verifier and the code challenge for PKCE (Proof Key for Code Exchange).
+func getPKCE() (string, string) {
+	codeVerifier := fmt.Sprintf("%s-%s", uuid.New().String(), uuid.New().String())
+	codeVerifierHash := sha256.Sum256([]byte(codeVerifier))
+	codeChallenge := base64.RawURLEncoding.EncodeToString(codeVerifierHash[:])
+	return codeVerifier, codeChallenge
 }

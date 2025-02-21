@@ -17,10 +17,15 @@ type Provider interface {
 	//
 	// The "state" parameter is returned as is in the provider's callback
 	// and can be used to correlate it with the original redirect.
-	GetAuthURL(ctx context.Context, state string) string
+	//
+	// The "codeChallenge" parameter is for PKCE (Proof Key for Code Exchange).
+	// This method only supports the "S256" code challenge method.
+	GetAuthURL(ctx context.Context, state, codeChallenge string) string
 
 	// TokenFromCode converts the auth code to the identity token.
-	TokenFromCode(ctx context.Context, code string) (string, error)
+	//
+	// The "codeVerifier" parameter is for PKCE (Proof Key for Code Exchange).
+	TokenFromCode(ctx context.Context, code, codeVerifier string) (string, error)
 
 	// DecodeToken validates the token claims and signature, and returns the claims.
 	DecodeToken(ctx context.Context, token string) (Claims, error)

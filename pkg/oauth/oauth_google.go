@@ -97,7 +97,7 @@ func (g *Google) Issuers() []string {
 	return googleIssuers
 }
 
-func (g *Google) GetAuthURL(ctx context.Context, state string) string {
+func (g *Google) GetAuthURL(ctx context.Context, state, codeChallenge string) string {
 	var u = &url.URL{}
 	// Copy the auth URL value into local pointer. This must not modify the original URL variable.
 	*u = *parsedGoogleAuthURL
@@ -110,12 +110,14 @@ func (g *Google) GetAuthURL(ctx context.Context, state string) string {
 	q.Set("redirect_uri", g.callbackURL)
 	q.Set("include_granted_scopes", "true")
 	q.Set("state", state)
+	q.Set("code_challenge", codeChallenge)
+	q.Set("code_challenge_method", "S256")
 
 	u.RawQuery = q.Encode()
 	return u.String()
 }
 
-func (g *Google) TokenFromCode(ctx context.Context, code string) (string, error) {
+func (g *Google) TokenFromCode(ctx context.Context, code, codeVerifier string) (string, error) {
 	// Request body.
 	body := map[string]any{
 		"code":          code,
@@ -123,6 +125,7 @@ func (g *Google) TokenFromCode(ctx context.Context, code string) (string, error)
 		"client_secret": g.clientSecret,
 		"redirect_uri":  g.callbackURL,
 		"grant_type":    "authorization_code",
+		"code_verifier": codeVerifier,
 	}
 
 	// Marshal body to use as an io.Reader.
@@ -147,7 +150,7 @@ func (g *Google) TokenFromCode(ctx context.Context, code string) (string, error)
 
 	// Check if the request failed.
 	if res.StatusCode/100 != 2 {
-		// Decode response body only for logging.
+		// Decode response body for logging.
 		resBody, err := io.ReadAll(res.Body)
 		if err != nil {
 			resBody = []byte("error in io.ReadAll call: " + err.Error())

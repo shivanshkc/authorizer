@@ -87,7 +87,7 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Convert the code sent by the provider to an access token.
-	token, err := provider.TokenFromCode(ctx, code)
+	token, err := provider.TokenFromCode(ctx, code, oState.CodeVerifier)
 	if err != nil {
 		slog.ErrorContext(ctx, "error in TokenFromCode call", "error", err)
 		errorRedirect(w, errutils.InternalServerError(), oState.ClientCallbackURL)
