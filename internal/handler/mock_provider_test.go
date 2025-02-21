@@ -13,9 +13,12 @@ type mockProvider struct {
 	// To mock the Issuers method.
 	issuers []string
 	// To mock the GetAuthURL method.
-	authURL string
+	argState         string
+	argCodeChallenge string
+	authURL          string
 	// To mock the TokenFromCode method.
-	argTokenFromCode string
+	argCode          string
+	argCodeVerifier  string
 	errTokenFromCode error
 	token            string
 	// To mock the DecodeToken method.
@@ -32,12 +35,15 @@ func (m *mockProvider) Issuers() []string {
 	return m.issuers
 }
 
-func (m *mockProvider) GetAuthURL(context.Context, string) string {
+func (m *mockProvider) GetAuthURL(c context.Context, state, codeChallenge string) string {
+	m.argState = state
+	m.argCodeChallenge = codeChallenge
 	return m.authURL
 }
 
-func (m *mockProvider) TokenFromCode(c context.Context, s string) (string, error) {
-	m.argTokenFromCode = s
+func (m *mockProvider) TokenFromCode(c context.Context, code, codeVerifier string) (string, error) {
+	m.argCode = code
+	m.argCodeVerifier = codeVerifier
 	if m.errTokenFromCode != nil {
 		return "", m.errTokenFromCode
 	}
