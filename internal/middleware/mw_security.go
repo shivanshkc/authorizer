@@ -4,6 +4,11 @@ import (
 	"net/http"
 )
 
+const (
+	xContentTypeOptions = "X-Content-Type-Options"
+	cacheControl        = "Cache-Control"
+)
+
 // Security adds essential security headers.
 //
 // NOTE: This middleware does not include headers like "Strict-Transport-Security", "X-Frame-Options",
@@ -15,12 +20,12 @@ func (m Middleware) Security(next http.Handler) http.Handler {
 		// - Cross-site scripting (XSS) attacks through file uploads.
 		// - Malicious code execution in trusted contexts.
 		// - Information leakage across origins.
-		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set(xContentTypeOptions, "nosniff")
 
 		// Prevent caching of sensitive data.
 		// With this header, a malicious entity will not be able to use browser history or back button
 		// to get access to any sensitive data.
-		w.Header().Set("Cache-Control", "no-store, max-age=0")
+		w.Header().Set(cacheControl, "no-store, max-age=0")
 
 		// Call the next handler
 		next.ServeHTTP(w, r)
