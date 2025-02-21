@@ -59,6 +59,7 @@ func (s *Server) handler() http.Handler {
 	router.Use(s.Middleware.Recovery)
 	router.Use(s.Middleware.CORS)
 	router.Use(s.Middleware.AccessLogger)
+	router.Use(s.Middleware.Security)
 
 	// Heath check route.
 	router.HandleFunc("/api", s.Handler.Health).Methods(http.MethodGet)

@@ -92,15 +92,7 @@ func (h *Handler) Auth(w http.ResponseWriter, r *http.Request) {
 	authURL := provider.GetAuthURL(ctx, state)
 
 	// Response headers.
-	// TODO: Add a common middleware for these headers.
-	headers := map[string]string{
-		"Location": authURL,
-		// The following headers make sure that the browser is not allowed to render the page
-		// in a <frame>, <iframe>, <embed> or <object> tag.
-		"X-Frame-Options":         "DENY",
-		"Content-Security-Policy": "frame-ancestors 'none'",
-	}
-
+	headers := map[string]string{"Location": authURL}
 	// Redirect.
 	httputils.Write(w, http.StatusFound, headers, nil)
 }
