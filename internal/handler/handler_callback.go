@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"github.com/shivanshkc/authorizer/internal/repository"
 	"github.com/shivanshkc/authorizer/internal/utils/errutils"
 	"github.com/shivanshkc/authorizer/internal/utils/httputils"
 )
@@ -102,7 +104,23 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Use the claims to insert/update user in the DB.
+	// Upsert user in the database asynchronously.
+	go func() {
+		// Do not use the request's context for this operation.
+		ctx := context.Background()
+		// The user record to store.
+		user := repository.User{
+			Email:      claims.Email,
+			GivenName:  claims.GivenName,
+			FamilyName: claims.FamilyName,
+			PictureURL: claims.Picture,
+		}
+
+		// Database call.
+		if err := h.repo.UpsertUser(ctx, user); err != nil {
+			slog.ErrorContext(ctx, "error in UpsertUser call", "error", err)
+		}
+	}()
 
 	// Set the cookie.
 	http.SetCookie(w, &http.Cookie{

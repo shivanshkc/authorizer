@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log/slog"
 	"os"
@@ -11,8 +12,11 @@ import (
 	"github.com/shivanshkc/authorizer/internal/http"
 	"github.com/shivanshkc/authorizer/internal/logger"
 	"github.com/shivanshkc/authorizer/internal/middleware"
+	"github.com/shivanshkc/authorizer/internal/repository"
 	"github.com/shivanshkc/authorizer/pkg/oauth"
 	"github.com/shivanshkc/authorizer/pkg/signals"
+
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 // googleScopes for OAuth with Google.
@@ -27,10 +31,16 @@ func main() {
 	conf := config.Load()
 	logger.Init(os.Stdout, conf.Logger.Level, conf.Logger.Pretty)
 
+	// Connect to database.
+	database, err := sql.Open("pgx", fmt.Sprintf("postgresql://%s:%s@%s/%s?sslmode=disable",
+		conf.Database.Username, conf.Database.Password, conf.Database.Addr, conf.Database.Database))
+	if err != nil {
+		panic("failed to connect database: " + err.Error())
+	}
+
 	// Instantiate the OAuth client for Google.
-	googleCallback := fmt.Sprintf("%s/api/auth/google/callback", conf.Application.BaseURL)
-	googleProvider, err := oauth.NewGoogle(ctx, conf.Google.ClientID, conf.Google.ClientSecret,
-		googleCallback, googleScopes)
+	gCallback := fmt.Sprintf("%s/api/auth/google/callback", conf.Application.BaseURL)
+	gProvider, err := oauth.NewGoogle(ctx, conf.Google.ClientID, conf.Google.ClientSecret, gCallback, googleScopes)
 	if err != nil {
 		panic("failed to initialize google provider: " + err.Error())
 	}
@@ -39,7 +49,7 @@ func main() {
 	server := &http.Server{
 		Config:     conf,
 		Middleware: middleware.Middleware{},
-		Handler:    handler.NewHandler(conf, googleProvider, nil),
+		Handler:    handler.NewHandler(conf, gProvider, nil, repository.NewRepository(database)),
 	}
 
 	// Handle interruptions like SIGINT.

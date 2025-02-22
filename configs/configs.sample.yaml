@@ -3,6 +3,12 @@ application:
   name: authorizer
   base_url: http://localhost:8080
 
+database:
+  addr: localhost:5432
+  username: postgres
+  password: dev
+  database: authorizer
+
 http_server:
   addr: localhost:8080
 

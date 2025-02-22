@@ -11,6 +11,13 @@ type Config struct {
 		BaseURL string `yaml:"base_url"`
 	} `yaml:"application"`
 
+	Database struct {
+		Addr     string `yaml:"addr"`
+		Username string `yaml:"username"`
+		Password string `yaml:"password"`
+		Database string `yaml:"database"`
+	} `yaml:"database"`
+
 	// HTTPServer is the model of the HTTP Server configs.
 	HTTPServer struct {
 		// Addr is the address of the HTTP server.

@@ -11,6 +11,9 @@ application_container_name = authorizer-1
 # Support both podman and docker.
 DOCKER=$(shell which podman || which docker || echo 'docker')
 
+# Database DSN for migrations.
+database_dsn = "postgres://postgres:dev@localhost:5432/authorizer?sslmode=disable"
+
 # Builds the project.
 build:
 	@echo "+$@"
@@ -52,3 +55,13 @@ container:
 	@$(DOCKER) run --name $(application_container_name) --detach --net host --restart unless-stopped \
 		--volume $(PWD)/configs/configs.yaml:/etc/$(application_name)/configs.yaml \
 		$(application_image_name):latest
+
+# Database migrations.
+migrate-up:
+	@echo "+$@"
+	@migrate -verbose -path db/migrations -database $(database_dsn) up
+
+# Database migrations.
+migrate-down:
+	@echo "+$@"
+	@echo "y" | migrate -verbose -path db/migrations -database $(database_dsn) down

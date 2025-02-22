@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/shivanshkc/authorizer/internal/config"
+	"github.com/shivanshkc/authorizer/internal/repository"
 	"github.com/shivanshkc/authorizer/internal/utils/errutils"
 	"github.com/shivanshkc/authorizer/internal/utils/httputils"
 	"github.com/shivanshkc/authorizer/pkg/oauth"
@@ -21,15 +22,18 @@ type Handler struct {
 
 	googleProvider  oauth.Provider
 	discordProvider oauth.Provider
+
+	repo repository.Repository
 }
 
 // NewHandler creates a new Handler instance.
-func NewHandler(config config.Config, google, discord oauth.Provider) *Handler {
+func NewHandler(config config.Config, google, discord oauth.Provider, repo repository.Repository) *Handler {
 	return &Handler{
 		config:          config,
 		stateMap:        &sync.Map{},
 		googleProvider:  google,
 		discordProvider: discord,
+		repo:            repo,
 	}
 }
 

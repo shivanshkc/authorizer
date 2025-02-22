@@ -98,7 +98,7 @@ func TestHandler_Auth(t *testing.T) {
 	// Create the mock handler.
 	mHandler := NewHandler(
 		config.Config{AllowedRedirectURLs: []string{mRedirectURL}},
-		&mockProvider{name: mProvider, authURL: mProviderAuthURL}, nil)
+		&mockProvider{name: mProvider, authURL: mProviderAuthURL}, nil, nil)
 
 	// Changing the state key expiry time to a shorter time so the test doesn't take too long.
 	stateKeyExpiry = time.Second
