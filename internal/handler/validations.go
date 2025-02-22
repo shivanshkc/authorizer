@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"github.com/google/uuid"
 	"net/url"
 	"regexp"
 )
@@ -9,11 +10,8 @@ import (
 var (
 	errInvalidProvider = errors.New("provider must be upto 20 characters and must include only a-z, 0-9, - and _")
 	errInvalidCCU      = errors.New("redirect_url must be present, must be upto 200 characters and a valid url")
-	errInvalidState    = errors.New("state must be present and must be upto 400 characters")
-	errInvalidCode     = errors.New("code must be present and must be upto 200 characters and must include only" +
-		"a-z, A-Z, 0-9, /, - and _")
-
-	errMalformedState = errors.New("state is malformed")
+	errInvalidState    = errors.New("state is malformed")
+	errInvalidCode     = errors.New("code is malformed")
 )
 
 var (
@@ -51,9 +49,7 @@ func validateClientCallbackURL(u string) error {
 
 // validateState validates the "state" parameter returned by the oauth.Provider.
 func validateState(s string) error {
-	// This max length is dependent on the max length of the Client Callback URL since state is a base64 encoded JSON
-	// that contains the Client Callback URL.
-	if len(s) == 0 || len(s) > 400 {
+	if _, err := uuid.Parse(s); err != nil {
 		return errInvalidState
 	}
 

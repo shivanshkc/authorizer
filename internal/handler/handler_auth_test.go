@@ -94,8 +94,8 @@ func TestHandler_Auth(t *testing.T) {
 		config.Config{AllowedRedirectURLs: []string{mRedirectURL}},
 		&mockProvider{name: mProvider, authURL: mProviderAuthURL}, nil)
 
-	// Changing the state ID expiry to a shorter time so the test doesn't take too long.
-	stateIDExpiry = time.Second
+	// Changing the state expiry to a shorter time so the test doesn't take too long.
+	stateExpiry = time.Second
 
 	// Create mock response writer and request.
 	rr, req, err := createMockAuthWR(mProvider, mRedirectURL)
@@ -104,30 +104,30 @@ func TestHandler_Auth(t *testing.T) {
 	// Invoke the method to test.
 	mHandler.Auth(rr, req)
 
-	// Testable quantities about the State ID Map.
+	// Testable quantities about the State Info Map.
 	var insertedStateIDAny any
 	var mapSize int
-	// Loop over the State ID Map to populate the testable quantities.
-	mHandler.stateIDMap.Range(func(key, value any) bool {
+	// Loop over the State Info Map to populate the testable quantities.
+	mHandler.stateInfoMap.Range(func(key, value any) bool {
 		mapSize++
 		insertedStateIDAny = key
 		return true
 	})
 
-	// The State ID Map must have only one entry.
-	require.Equal(t, 1, mapSize, "State ID Map has more than 1 entries")
+	// The State Info Map must have only one entry.
+	require.Equal(t, 1, mapSize, "State Info Map has more than 1 entries")
 
 	// State ID must be a string.
 	insertedStateID, ok := insertedStateIDAny.(string)
-	require.True(t, ok, "State ID inserted in State ID Map is not a string")
+	require.True(t, ok, "State ID inserted in State Info Map is not a string")
 
 	// State ID must be a UUID.
 	_, errUUID := uuid.Parse(insertedStateID)
 	require.NoError(t, errUUID, "State ID is not a valid UUID")
 
 	// State ID must be deleted after expiry.
-	time.Sleep(stateIDExpiry + 500*time.Millisecond)
-	_, found := mHandler.stateIDMap.Load(insertedStateIDAny)
+	time.Sleep(stateExpiry + 500*time.Millisecond)
+	_, found := mHandler.stateInfoMap.Load(insertedStateIDAny)
 	require.False(t, found, "State ID was not deleted after expiry")
 
 	// Verify response.

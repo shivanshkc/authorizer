@@ -15,10 +15,11 @@ import (
 type Handler struct {
 	config config.Config
 
-	// stateIDMap holds all state IDs for which the OAuth flow has started but the callback has not been invoked yet.
+	// stateInfoMap holds all state values for which the OAuth flow has started
+	// but the callback has not been invoked yet.
 	//
-	// Its role is to tackle CSRF vulnerabilities.
-	stateIDMap *sync.Map
+	// Its role is to defend against CSRF attacks.
+	stateInfoMap *sync.Map
 
 	googleProvider  oauth.Provider
 	discordProvider oauth.Provider
@@ -28,7 +29,7 @@ type Handler struct {
 func NewHandler(config config.Config, google, discord oauth.Provider) *Handler {
 	return &Handler{
 		config:          config,
-		stateIDMap:      &sync.Map{},
+		stateInfoMap:    &sync.Map{},
 		googleProvider:  google,
 		discordProvider: discord,
 	}

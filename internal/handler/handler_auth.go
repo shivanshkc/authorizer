@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -18,11 +17,11 @@ import (
 	"github.com/shivanshkc/authorizer/internal/utils/httputils"
 )
 
-// stateIDExpiry is the max allowed time for a provider to invoke the callback API.
-// If the provider is too late, the state ID will be expired and the flow will fail.
+// stateExpiry is the max allowed time for a provider to invoke the callback API.
+// If the provider is too late, the state value will be removed from the memory and the flow will fail.
 //
 // This is a var and not a const so it can be modified for testing purposes.
-var stateIDExpiry = time.Minute
+var stateExpiry = time.Minute
 
 var (
 	errUnknownRedirectURL  = errutils.BadRequest().WithReasonStr("redirect_url is not allowed")
@@ -67,69 +66,46 @@ func (h *Handler) Auth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create and persist the state ID for better CSRF protection.
-	stateID := uuid.NewString()
-	h.stateIDMap.Store(stateID, struct{}{})
+	// Generate the "state" parameter for CSRF protection.
+	state := uuid.NewString()
+	// Generate code verifier and challenge for PKCE (Proof Key for Code Exchange).
+	codeVerifier, codeChallenge := getPKCE()
+	// Persist contextual info. This will be required upon callback.
+	h.stateInfoMap.Store(state, stateInfo{
+		CodeVerifier:      codeVerifier,
+		ClientCallbackURL: clientCallbackURL,
+	})
 
-	// Expire the state ID after some time.
+	// Expire the state after some time.
 	go func() {
 		// Don't use the HTTP request's context here.
 		ctx := context.Background()
 		// Allow the provider some time to invoke the callback API before timing out the flow.
-		time.Sleep(stateIDExpiry)
+		time.Sleep(stateExpiry)
 
-		// Expire state ID will apt logs.
-		slog.InfoContext(ctx, "expiring state ID", "stateID", stateID)
-		if _, present := h.stateIDMap.LoadAndDelete(stateID); !present {
-			slog.InfoContext(ctx, "state ID utilized before expiry", "stateID", stateID)
+		// Expire state with apt logs.
+		slog.InfoContext(ctx, "expiring state", "state", state)
+		if _, present := h.stateInfoMap.LoadAndDelete(state); !present {
+			slog.InfoContext(ctx, "state utilized before expiry", "state", state)
 			return
 		}
-		slog.WarnContext(ctx, "state ID expired", "stateID", stateID)
+		slog.WarnContext(ctx, "state expired", "state", state)
 	}()
 
-	// Generate code verifier and challenge for PKCE (Proof Key for Code Exchange).
-	codeVerifier, codeChallenge := getPKCE()
-
-	// Obtain the OAuth "state" parameter.
-	state := encodeState(stateID, codeVerifier, clientCallbackURL)
 	// Get the Auth URL of the provider.
 	authURL := provider.GetAuthURL(ctx, state, codeChallenge)
-
 	// Response headers.
 	headers := map[string]string{"Location": authURL}
 	// Redirect.
 	httputils.Write(w, http.StatusFound, headers, nil)
 }
 
-// oAuthState is encoded and used as the "state" parameter during the OAuth flow.
-type oAuthState struct {
-	// ID makes the state unique
-	ID string
+// stateInfo holds all contextual info for an OAuth flow.
+type stateInfo struct {
 	// CodeVerifier is for PKCE (Proof Key for Code Exchange).
-	CodeVerifier      string
+	CodeVerifier string
+	// ClientCallbackURL is the URL where the OAuth flow is supposed to end.
 	ClientCallbackURL string
-}
-
-// encodeState combines the given clientCallbackURL with a salt to create a unique state string.
-func encodeState(id, cv, ccu string) string {
-	s, _ := json.Marshal(oAuthState{ID: id, CodeVerifier: cv, ClientCallbackURL: ccu})
-	return base64.StdEncoding.EncodeToString(s)
-}
-
-// decodeState decodes the given state to retrieve the originally encoded params (clientCallbackURL).
-func decodeState(state string) (oAuthState, error) {
-	// Base64 decode the state.
-	structBytes, err := base64.StdEncoding.DecodeString(state)
-	if err != nil {
-		return oAuthState{}, fmt.Errorf("failed to base64 decode state: %w", err)
-	}
-
-	var oState oAuthState
-	if err := json.Unmarshal(structBytes, &oState); err != nil {
-		return oAuthState{}, fmt.Errorf("error in json.Unmarshal call: %w", err)
-	}
-
-	return oState, nil
 }
 
 // getPKCE returns the code verifier and the code challenge for PKCE (Proof Key for Code Exchange).

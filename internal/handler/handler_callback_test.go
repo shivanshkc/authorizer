@@ -24,7 +24,7 @@ import (
 func TestHandler_Callback_StateValidation(t *testing.T) {
 	mStateID := uuid.NewString()
 	mAllowedURLs := []string{"https://allowed.com", "https://wow.com"}
-	mHandler := &Handler{config: config.Config{AllowedRedirectURLs: mAllowedURLs}, stateIDMap: &sync.Map{}}
+	mHandler := &Handler{config: config.Config{AllowedRedirectURLs: mAllowedURLs}, stateInfoMap: &sync.Map{}}
 
 	for _, tc := range []struct {
 		name string
@@ -53,7 +53,7 @@ func TestHandler_Callback_StateValidation(t *testing.T) {
 			errSubstring:     errMalformedState.Error(),
 		},
 		{
-			name: "State not present in the State ID Map",
+			name: "State not present in the State Info Map",
 			inputState: base64.StdEncoding.EncodeToString(
 				[]byte(`{"ID":"` + mStateID + `","ClientCallbackURL":"` + mAllowedURLs[1] + `"}`)),
 			expectedLocation: mAllowedURLs[1],
@@ -84,7 +84,7 @@ func TestHandler_Callback_Validations(t *testing.T) {
 	// Common mock inputs and implementations.
 	mStateID, mCCU := uuid.NewString(), "https://allowed.com"
 	mState := base64.StdEncoding.EncodeToString([]byte(`{"ID":"` + mStateID + `","ClientCallbackURL":"` + mCCU + `"}`))
-	mHandler := &Handler{config: config.Config{AllowedRedirectURLs: []string{mCCU}}, stateIDMap: &sync.Map{}}
+	mHandler := &Handler{config: config.Config{AllowedRedirectURLs: []string{mCCU}}, stateInfoMap: &sync.Map{}}
 
 	for _, tc := range []struct {
 		name string
@@ -140,8 +140,8 @@ func TestHandler_Callback_Validations(t *testing.T) {
 	} {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			// Populate the State ID Map. This must be empty by the end.
-			mHandler.stateIDMap.Store(mStateID, struct{}{})
+			// Populate the State Info Map. This must be empty by the end.
+			mHandler.stateInfoMap.Store(mStateID, struct{}{})
 
 			// Create mock response writer and request.
 			w, r, err := createMockCallbackWR(tc.inputProvider, mState, tc.inputCode, tc.inputError)
@@ -150,8 +150,8 @@ func TestHandler_Callback_Validations(t *testing.T) {
 			// Invoke the method to test.
 			mHandler.Callback(w, r)
 
-			// Check if the state ID was deleted from the State ID Map.
-			_, found := mHandler.stateIDMap.LoadAndDelete(mStateID)
+			// Check if the state ID was deleted from the State Info Map.
+			_, found := mHandler.stateInfoMap.LoadAndDelete(mStateID)
 			require.False(t, found, "Expected state ID to be deleted but it was not")
 
 			// Verify response code and headers.
@@ -184,7 +184,7 @@ func TestHandler_Callback(t *testing.T) {
 
 	mHandler := &Handler{
 		config:         config.Config{AllowedRedirectURLs: []string{mCCU}},
-		stateIDMap:     &sync.Map{},
+		stateInfoMap:   &sync.Map{},
 		googleProvider: mProvider,
 	}
 
@@ -257,8 +257,8 @@ func TestHandler_Callback(t *testing.T) {
 				mHandler.config.Application.BaseURL = "http://application.com"
 			}
 
-			// Populate the State ID Map. This must be empty by the end.
-			mHandler.stateIDMap.Store(mStateID, struct{}{})
+			// Populate the State Info Map. This must be empty by the end.
+			mHandler.stateInfoMap.Store(mStateID, struct{}{})
 			// Provider to use for this test.
 			thisProvider := tc.providerFunc()
 			mHandler.googleProvider = thisProvider
@@ -270,8 +270,8 @@ func TestHandler_Callback(t *testing.T) {
 			// Invoke the method to test.
 			mHandler.Callback(w, r)
 
-			// Check if the state ID was deleted from the State ID Map.
-			_, found := mHandler.stateIDMap.LoadAndDelete(mStateID)
+			// Check if the state ID was deleted from the State Info Map.
+			_, found := mHandler.stateInfoMap.LoadAndDelete(mStateID)
 			require.False(t, found, "Expected state ID to be deleted but it was not")
 
 			// Verify if the provider methods were invoked and with correct arguments.
