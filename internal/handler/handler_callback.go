@@ -24,35 +24,35 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 
 	// Obtain params from the request.
 	providerName := mux.Vars(r)["provider"]
-	state, errAuth, code := r.URL.Query().Get("state"),
+	stateKey, errAuth, code := r.URL.Query().Get("state"),
 		r.URL.Query().Get("error"),
 		r.URL.Query().Get("code")
 
-	// State parameter validation.
-	if err := validateState(state); err != nil {
-		slog.ErrorContext(ctx, "invalid state", "value", state, "error", err)
-		// Since the state is invalid, the actual clientCallbackURL is unknown,
-		// and so we fall back to the first allowed redirect URL.
+	// State key validation.
+	if err := validateState(stateKey); err != nil {
+		slog.ErrorContext(ctx, "invalid state from provider", "value", stateKey, "error", err)
+		// Since the state key is invalid, the state map can not be accessed, and so the redirect URL is unknown.
+		// Therefore, we have to fall back to the first allowed redirect URL.
 		errorRedirect(w, errInvalidState, h.config.AllowedRedirectURLs[0])
 		return
 	}
 
-	// If the state value is found in the State Info Map, it guarantees that the request is genuine.
-	// Otherwise, it could be that the provider took too long to callback and the state got expired and cleaned up
+	// If the state value is found in the state map, it guarantees that it is not a CSRF attack.
+	// Otherwise, it could be that the provider took too long to callback and the state key got expired and cleaned up
 	// from the map, or it could be that it is a malicious request and someone is trying to impersonate the provider.
-	sInfoAny, present := h.stateInfoMap.LoadAndDelete(state)
+	sValueAny, present := h.stateMap.LoadAndDelete(stateKey)
 	if !present {
-		slog.ErrorContext(ctx, "state not found in the State Info Map, failing request", "state", state)
-		// Since the state is expired, the Client Callback URL is gone,
+		slog.ErrorContext(ctx, "state key not found in the map, failing request", "stateKey", stateKey)
+		// Since the state key is expired, the redirect URL is gone,
 		// and so we fall back to the first allowed redirect URL.
 		errorRedirect(w, errutils.RequestTimeout(), h.config.AllowedRedirectURLs[0])
 		return
 	}
 
-	// Assert to the stateInfo type to access fields.
-	sInfo, ok := sInfoAny.(stateInfo)
+	// Assert to the stateValue type to access fields.
+	sValue, ok := sValueAny.(stateValue)
 	if !ok {
-		slog.ErrorContext(ctx, "failed to assert to stateInfo type", "stateInfo", sInfoAny)
+		slog.ErrorContext(ctx, "failed to assert to stateValue type", "stateValue", sValueAny)
 		errorRedirect(w, errutils.RequestTimeout(), h.config.AllowedRedirectURLs[0])
 		return
 	}
@@ -60,21 +60,21 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 	// Provider name validation.
 	if err := validateProvider(providerName); err != nil {
 		slog.ErrorContext(ctx, "invalid provider in callback", "value", providerName, "error", err)
-		errorRedirect(w, errutils.InternalServerError(), sInfo.ClientCallbackURL)
+		errorRedirect(w, errutils.InternalServerError(), sValue.ClientCallbackURL)
 		return
 	}
 
 	// Authorization code validation.
 	if err := validateAuthCode(code); err != nil {
 		slog.ErrorContext(ctx, "invalid code in callback", "value", code, "error", err)
-		errorRedirect(w, errutils.InternalServerError(), sInfo.ClientCallbackURL)
+		errorRedirect(w, errutils.InternalServerError(), sValue.ClientCallbackURL)
 		return
 	}
 
 	// If this error is not empty, then the OAuth flow has failed from the provider's side.
 	if errAuth != "" {
 		slog.ErrorContext(ctx, "provider called back with error", "error", errAuth)
-		errorRedirect(w, errors.New(errAuth), sInfo.ClientCallbackURL)
+		errorRedirect(w, errors.New(errAuth), sValue.ClientCallbackURL)
 		return
 	}
 
@@ -82,15 +82,15 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 	provider := h.providerByName(providerName)
 	if provider == nil {
 		slog.ErrorContext(ctx, "callback from unknown provider", "provider", providerName)
-		errorRedirect(w, errutils.InternalServerError(), sInfo.ClientCallbackURL)
+		errorRedirect(w, errutils.InternalServerError(), sValue.ClientCallbackURL)
 		return
 	}
 
 	// Convert the code sent by the provider to an access token.
-	token, err := provider.TokenFromCode(ctx, code, sInfo.CodeVerifier)
+	token, err := provider.TokenFromCode(ctx, code, sValue.CodeVerifier)
 	if err != nil {
 		slog.ErrorContext(ctx, "error in TokenFromCode call", "error", err)
-		errorRedirect(w, errutils.InternalServerError(), sInfo.ClientCallbackURL)
+		errorRedirect(w, errutils.InternalServerError(), sValue.ClientCallbackURL)
 		return
 	}
 
@@ -98,7 +98,7 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 	claims, err := provider.DecodeToken(ctx, token)
 	if err != nil {
 		slog.ErrorContext(ctx, "error in DecodeToken call", "error", err)
-		errorRedirect(w, errutils.InternalServerError(), sInfo.ClientCallbackURL)
+		errorRedirect(w, errutils.InternalServerError(), sValue.ClientCallbackURL)
 		return
 	}
 
@@ -120,7 +120,7 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 	})
 
 	// Success redirect URL.
-	redirectURL := fmt.Sprintf("%s?provider=%s", sInfo.ClientCallbackURL, providerName)
+	redirectURL := fmt.Sprintf("%s?provider=%s", sValue.ClientCallbackURL, providerName)
 	headers := map[string]string{"Location": redirectURL}
 	httputils.Write(w, http.StatusFound, headers, nil)
 }

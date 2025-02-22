@@ -94,8 +94,8 @@ func TestHandler_Auth(t *testing.T) {
 		config.Config{AllowedRedirectURLs: []string{mRedirectURL}},
 		&mockProvider{name: mProvider, authURL: mProviderAuthURL}, nil)
 
-	// Changing the state expiry to a shorter time so the test doesn't take too long.
-	stateExpiry = time.Second
+	// Changing the state key expiry time to a shorter time so the test doesn't take too long.
+	stateKeyExpiry = time.Second
 
 	// Create mock response writer and request.
 	rr, req, err := createMockAuthWR(mProvider, mRedirectURL)
@@ -104,31 +104,39 @@ func TestHandler_Auth(t *testing.T) {
 	// Invoke the method to test.
 	mHandler.Auth(rr, req)
 
-	// Testable quantities about the State Info Map.
-	var insertedStateIDAny any
+	// Testable quantities about the state map.
+	var insertedStateKeyAny, insertedStateValueAny any
 	var mapSize int
-	// Loop over the State Info Map to populate the testable quantities.
-	mHandler.stateInfoMap.Range(func(key, value any) bool {
+	// Loop over the state map to populate the testable quantities.
+	mHandler.stateMap.Range(func(key, value any) bool {
 		mapSize++
-		insertedStateIDAny = key
+		insertedStateKeyAny, insertedStateValueAny = key, value
 		return true
 	})
 
-	// The State Info Map must have only one entry.
-	require.Equal(t, 1, mapSize, "State Info Map has more than 1 entries")
+	// The state map must have only one entry.
+	require.Equal(t, 1, mapSize, "State map has more than 1 entries")
 
-	// State ID must be a string.
-	insertedStateID, ok := insertedStateIDAny.(string)
-	require.True(t, ok, "State ID inserted in State Info Map is not a string")
+	// The state key must be a string.
+	insertedStateKey, ok := insertedStateKeyAny.(string)
+	require.True(t, ok, "State key inserted in the State Map is not a string")
 
-	// State ID must be a UUID.
-	_, errUUID := uuid.Parse(insertedStateID)
-	require.NoError(t, errUUID, "State ID is not a valid UUID")
+	// The state value must be of correct type.
+	insertedStateValue, ok := insertedStateValueAny.(stateValue)
+	require.True(t, ok, "State value inserted in the State Map is of unexpected type")
 
-	// State ID must be deleted after expiry.
-	time.Sleep(stateExpiry + 500*time.Millisecond)
-	_, found := mHandler.stateInfoMap.Load(insertedStateIDAny)
-	require.False(t, found, "State ID was not deleted after expiry")
+	// State key must be a UUID.
+	_, errUUID := uuid.Parse(insertedStateKey)
+	require.NoError(t, errUUID, "State key is not a valid UUID")
+
+	// State value verification.
+	require.NotEmpty(t, insertedStateValue.CodeVerifier, "Code verifier is empty")
+	require.Equal(t, mRedirectURL, insertedStateValue.ClientCallbackURL, "CCU does not match")
+
+	// State key must be deleted after expiry.
+	time.Sleep(stateKeyExpiry + 500*time.Millisecond)
+	_, found := mHandler.stateMap.Load(insertedStateKeyAny)
+	require.False(t, found, "State key was not deleted after expiry")
 
 	// Verify response.
 	require.Equal(t, http.StatusFound, rr.Code)

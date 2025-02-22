@@ -34,8 +34,6 @@ func validateProvider(p string) error {
 
 // validateClientCallbackURL validates the client callback URL param (accepted as a query parameter named redirect_url).
 func validateClientCallbackURL(u string) error {
-	// This max length also dictates the max length of the "state" parameter, since state is a base64 encoded JSON that
-	// contains the Client Callback URL.
 	if len(u) == 0 || len(u) > 200 {
 		return errInvalidCCU
 	}

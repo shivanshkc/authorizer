@@ -49,14 +49,14 @@ func TestGoogle_GetAuthURL(t *testing.T) {
 	defer cancelFunc()
 
 	// Mock inputs.
-	mockState := "mockState"
+	mockState, mockCodeChallenge := "mockState", "mockCodeChallenge"
 
 	// Mock client.
 	google, err := newMockGoogle(ctx, nil)
 	require.NoError(t, err, "Failed to create Google instance")
 
 	// Method to test.
-	authURL := google.GetAuthURL(ctx, mockState)
+	authURL := google.GetAuthURL(ctx, mockState, mockCodeChallenge)
 
 	// Verify that the returned URL is valid.
 	parsed, err := url.Parse(authURL)
@@ -78,6 +78,10 @@ func TestGoogle_GetAuthURL(t *testing.T) {
 		"Incorrect 'Include Granted Scopes'")
 	require.Equal(t, mockState, parsed.Query().Get("state"),
 		"Incorrect state")
+	require.Equal(t, mockCodeChallenge, parsed.Query().Get("code_challenge"),
+		"Incorrect code challenge")
+	require.Equal(t, "S256", parsed.Query().Get("code_challenge_method"),
+		"Incorrect code challenge method")
 }
 
 func TestGoogle_TokenFromCode(t *testing.T) {
@@ -86,7 +90,7 @@ func TestGoogle_TokenFromCode(t *testing.T) {
 	defer cancelFunc()
 
 	// Mock inputs.
-	mockCode := "mockCode"
+	mockCode, mockCodeVerifier := "mockCode", "mockCodeVerifier"
 
 	// Mock client.
 	google, err := newMockGoogle(ctx, nil)
@@ -138,6 +142,7 @@ func TestGoogle_TokenFromCode(t *testing.T) {
 				"client_secret": google.clientSecret,
 				"redirect_uri":  google.callbackURL,
 				"grant_type":    "authorization_code",
+				"code_verifier": mockCodeVerifier,
 			}
 
 			// Transport to mock the HTTP request.
@@ -158,7 +163,7 @@ func TestGoogle_TokenFromCode(t *testing.T) {
 
 			// Attach mock HTTP client.
 			google.httpClient = &http.Client{Transport: transport}
-			token, err := google.TokenFromCode(ctx, mockCode)
+			token, err := google.TokenFromCode(ctx, mockCode, mockCodeVerifier)
 
 			// Verify based on error expectation.
 			if tc.errExpected {

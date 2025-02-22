@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
@@ -22,48 +21,35 @@ import (
 )
 
 func TestHandler_Callback_StateValidation(t *testing.T) {
-	mStateID := uuid.NewString()
 	mAllowedURLs := []string{"https://allowed.com", "https://wow.com"}
-	mHandler := &Handler{config: config.Config{AllowedRedirectURLs: mAllowedURLs}, stateInfoMap: &sync.Map{}}
+	mHandler := &Handler{config: config.Config{AllowedRedirectURLs: mAllowedURLs}, stateMap: &sync.Map{}}
 
 	for _, tc := range []struct {
 		name string
 		// Request inputs.
-		inputState string
-		// Expectations.
-		expectedLocation string
-		errSubstring     string
+		inputStateKey string
+		errSubstring  string
 	}{
 		{
-			name:             "State absent",
-			inputState:       "",
-			expectedLocation: mAllowedURLs[0],
-			errSubstring:     errInvalidState.Error(),
+			name:          "State key absent",
+			inputStateKey: "",
+			errSubstring:  errInvalidState.Error(),
 		},
 		{
-			name:             "State too long",
-			inputState:       strings.Repeat("z", 401),
-			expectedLocation: mAllowedURLs[0],
-			errSubstring:     errInvalidState.Error(),
+			name:          "State key invalid",
+			inputStateKey: "not-a-valid-uuid",
+			errSubstring:  errInvalidState.Error(),
 		},
 		{
-			name:             "State not a valid base64",
-			inputState:       "Just some gibberish",
-			expectedLocation: mAllowedURLs[0],
-			errSubstring:     errMalformedState.Error(),
-		},
-		{
-			name: "State not present in the State Info Map",
-			inputState: base64.StdEncoding.EncodeToString(
-				[]byte(`{"ID":"` + mStateID + `","ClientCallbackURL":"` + mAllowedURLs[1] + `"}`)),
-			expectedLocation: mAllowedURLs[1],
-			errSubstring:     errutils.RequestTimeout().Error(),
+			name:          "State key not present in the state map",
+			inputStateKey: uuid.NewString(),
+			errSubstring:  errutils.RequestTimeout().Error(),
 		},
 	} {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			// Create mock response writer and request.
-			w, r, err := createMockCallbackWR("anything", tc.inputState, "anything", "")
+			w, r, err := createMockCallbackWR("anything", tc.inputStateKey, "anything", "")
 			require.NoError(t, err, "Failed to create mock callback response writer and request")
 
 			// Invoke the method to test.
@@ -74,7 +60,7 @@ func TestHandler_Callback_StateValidation(t *testing.T) {
 			// Verify redirect URL and error message.
 			parsed, err := url.Parse(w.Header().Get("Location"))
 			require.NoError(t, err, "Expected Location header to be a valid URL")
-			require.Equal(t, tc.expectedLocation, parsed.Scheme+"://"+parsed.Host)
+			require.Equal(t, mAllowedURLs[0], parsed.Scheme+"://"+parsed.Host)
 			require.Contains(t, parsed.Query().Get("error"), tc.errSubstring)
 		})
 	}
@@ -82,9 +68,8 @@ func TestHandler_Callback_StateValidation(t *testing.T) {
 
 func TestHandler_Callback_Validations(t *testing.T) {
 	// Common mock inputs and implementations.
-	mStateID, mCCU := uuid.NewString(), "https://allowed.com"
-	mState := base64.StdEncoding.EncodeToString([]byte(`{"ID":"` + mStateID + `","ClientCallbackURL":"` + mCCU + `"}`))
-	mHandler := &Handler{config: config.Config{AllowedRedirectURLs: []string{mCCU}}, stateInfoMap: &sync.Map{}}
+	mStateKey, mCCU := uuid.NewString(), "https://allowed.com"
+	mHandler := &Handler{config: config.Config{AllowedRedirectURLs: []string{mCCU}}, stateMap: &sync.Map{}}
 
 	for _, tc := range []struct {
 		name string
@@ -140,19 +125,19 @@ func TestHandler_Callback_Validations(t *testing.T) {
 	} {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			// Populate the State Info Map. This must be empty by the end.
-			mHandler.stateInfoMap.Store(mStateID, struct{}{})
+			// Populate the state map. This must be empty by the end.
+			mHandler.stateMap.Store(mStateKey, stateValue{CodeVerifier: "anything", ClientCallbackURL: mCCU})
 
 			// Create mock response writer and request.
-			w, r, err := createMockCallbackWR(tc.inputProvider, mState, tc.inputCode, tc.inputError)
+			w, r, err := createMockCallbackWR(tc.inputProvider, mStateKey, tc.inputCode, tc.inputError)
 			require.NoError(t, err, "Failed to create mock callback response writer and request")
 
 			// Invoke the method to test.
 			mHandler.Callback(w, r)
 
-			// Check if the state ID was deleted from the State Info Map.
-			_, found := mHandler.stateInfoMap.LoadAndDelete(mStateID)
-			require.False(t, found, "Expected state ID to be deleted but it was not")
+			// Check if the state key was deleted from the state map.
+			_, found := mHandler.stateMap.LoadAndDelete(mStateKey)
+			require.False(t, found, "Expected state key to have been deleted but it was not")
 
 			// Verify response code and headers.
 			require.Equal(t, http.StatusFound, w.Code)
@@ -169,9 +154,9 @@ func TestHandler_Callback_Validations(t *testing.T) {
 func TestHandler_Callback(t *testing.T) {
 	// Common mock inputs.
 	errMock := errors.New("mock error")
-	mStateID, mCCU := uuid.NewString(), "https://allowed.com"
+	mStateKey, mCCU := uuid.NewString(), "https://allowed.com"
 	mockCode := "4/0ASVgi3Iwlq42Bl8wh6-XUEpdSNFremRaxzXPWpRZxqYWW-xGo54-DAV94ZbLKx033sG5qA"
-	mState := base64.StdEncoding.EncodeToString([]byte(`{"ID":"` + mStateID + `","ClientCallbackURL":"` + mCCU + `"}`))
+	mStateValue := stateValue{CodeVerifier: "anything", ClientCallbackURL: mCCU}
 
 	// Common mock implementations.
 	mProvider := &mockProvider{
@@ -184,7 +169,7 @@ func TestHandler_Callback(t *testing.T) {
 
 	mHandler := &Handler{
 		config:         config.Config{AllowedRedirectURLs: []string{mCCU}},
-		stateInfoMap:   &sync.Map{},
+		stateMap:       &sync.Map{},
 		googleProvider: mProvider,
 	}
 
@@ -209,6 +194,7 @@ func TestHandler_Callback(t *testing.T) {
 		{
 			name:                    "Everything good, application on HTTP domain, no errors",
 			providerFunc:            func() *mockProvider { return mProvider.Clone() },
+			isHTTPS:                 false,
 			expectTokenFromCodeCall: true,
 			expectDecodeTokenCall:   true,
 			errSubstring:            "",
@@ -257,29 +243,33 @@ func TestHandler_Callback(t *testing.T) {
 				mHandler.config.Application.BaseURL = "http://application.com"
 			}
 
-			// Populate the State Info Map. This must be empty by the end.
-			mHandler.stateInfoMap.Store(mStateID, struct{}{})
+			// Populate the state map. This must be empty by the end.
+			mHandler.stateMap.Store(mStateKey, mStateValue)
 			// Provider to use for this test.
 			thisProvider := tc.providerFunc()
 			mHandler.googleProvider = thisProvider
 
 			// Create mock response writer and request.
-			w, r, err := createMockCallbackWR(mProvider.name, mState, mockCode, "")
+			w, r, err := createMockCallbackWR(mProvider.name, mStateKey, mockCode, "")
 			require.NoError(t, err, "Failed to create mock callback response writer and request")
 
 			// Invoke the method to test.
 			mHandler.Callback(w, r)
 
-			// Check if the state ID was deleted from the State Info Map.
-			_, found := mHandler.stateInfoMap.LoadAndDelete(mStateID)
-			require.False(t, found, "Expected state ID to be deleted but it was not")
+			// Check if the state key was deleted from the state map
+			_, found := mHandler.stateMap.LoadAndDelete(mStateKey)
+			require.False(t, found, "Expected state key to be deleted but it was not")
 
 			// Verify if the provider methods were invoked and with correct arguments.
 			if tc.expectTokenFromCodeCall {
-				require.Equal(t, mockCode, thisProvider.argTokenFromCode,
-					"TokenFromCode was not called with correct arguments")
+				require.Equal(t, mockCode, thisProvider.argCode,
+					"TokenFromCode was not called with the correct auth code")
+				require.Equal(t, mStateValue.CodeVerifier, thisProvider.argCodeVerifier,
+					"TokenFromCode was not called with the correct code verifier")
 			} else {
-				require.Equal(t, "", thisProvider.argTokenFromCode,
+				require.Equal(t, "", thisProvider.argCode,
+					"TokenFromCode unexpectedly called, was the mockProvider instance correctly reset?")
+				require.Equal(t, "", thisProvider.argCodeVerifier,
 					"TokenFromCode unexpectedly called, was the mockProvider instance correctly reset?")
 			}
 
@@ -320,7 +310,7 @@ func TestHandler_Callback(t *testing.T) {
 }
 
 // createMockCallbackWR creates a mock ResponseWriter and Request to test the Callback handler.
-func createMockCallbackWR(provider, state, code, e string) (*httptest.ResponseRecorder, *http.Request, error) {
+func createMockCallbackWR(provider, stateKey, code, e string) (*httptest.ResponseRecorder, *http.Request, error) {
 	// Mock HTTP request.
 	req, err := http.NewRequest(http.MethodGet, "/mock", nil)
 	if err != nil {
@@ -331,7 +321,7 @@ func createMockCallbackWR(provider, state, code, e string) (*httptest.ResponseRe
 	req = mux.SetURLVars(req, map[string]string{"provider": provider})
 	// Set query params.
 	q := req.URL.Query()
-	q.Set("state", state)
+	q.Set("state", stateKey)
 	q.Set("code", code)
 	q.Set("error", e)
 	req.URL.RawQuery = q.Encode()
