@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,9 +14,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/shivanshkc/authorizer/internal/config"
+	"github.com/shivanshkc/authorizer/internal/repository"
 	"github.com/shivanshkc/authorizer/internal/utils/errutils"
 	"github.com/shivanshkc/authorizer/pkg/oauth"
 )
@@ -164,7 +167,14 @@ func TestHandler_Callback(t *testing.T) {
 		errTokenFromCode: nil,
 		token:            "mockToken.Darth.Vader",
 		errDecodeToken:   nil,
-		claims:           oauth.Claims{Exp: time.Now().Add(time.Hour)},
+		claims: oauth.Claims{
+			Iss:        "mockIssuer",
+			Exp:        time.Now().Add(time.Hour),
+			Email:      "mock@mock.com",
+			GivenName:  "mockGivenName",
+			FamilyName: "mockFamilyName",
+			Picture:    "mockPicture",
+		},
 	}
 
 	mHandler := &Handler{
@@ -181,6 +191,7 @@ func TestHandler_Callback(t *testing.T) {
 		// Expectations.
 		expectTokenFromCodeCall bool
 		expectDecodeTokenCall   bool
+		expectDatabaseCall      bool
 		errSubstring            string
 	}{
 		{
@@ -189,6 +200,7 @@ func TestHandler_Callback(t *testing.T) {
 			isHTTPS:                 true,
 			expectTokenFromCodeCall: true,
 			expectDecodeTokenCall:   true,
+			expectDatabaseCall:      true,
 			errSubstring:            "",
 		},
 		{
@@ -197,6 +209,7 @@ func TestHandler_Callback(t *testing.T) {
 			isHTTPS:                 false,
 			expectTokenFromCodeCall: true,
 			expectDecodeTokenCall:   true,
+			expectDatabaseCall:      true,
 			errSubstring:            "",
 		},
 		{
@@ -248,6 +261,9 @@ func TestHandler_Callback(t *testing.T) {
 			// Provider to use for this test.
 			thisProvider := tc.providerFunc()
 			mHandler.googleProvider = thisProvider
+			// Attach new mock repository instance for each run.
+			mRepo := &mockRepository{}
+			mHandler.repo = mRepo
 
 			// Create mock response writer and request.
 			w, r, err := createMockCallbackWR(mProvider.name, mStateKey, mockCode, "")
@@ -279,6 +295,24 @@ func TestHandler_Callback(t *testing.T) {
 			} else {
 				require.Equal(t, "", thisProvider.argDecodeToken,
 					"DecodeToken unexpectedly called, was the mockProvider instance correctly reset?")
+			}
+
+			// Verify if the database operation was invoked and with correct arguments.
+			if tc.expectDatabaseCall {
+				mRepo.On("UpsertUser", context.Background(), repository.User{
+					Email:      thisProvider.claims.Email,
+					GivenName:  thisProvider.claims.GivenName,
+					FamilyName: thisProvider.claims.FamilyName,
+					PictureURL: thisProvider.claims.Picture,
+				}).Return(nil)
+
+				// Sleep for some time for the database operation to complete.
+				time.Sleep(time.Millisecond * 100)
+				mRepo.AssertExpectations(t)
+			} else {
+				// Sleep for some time for the database operation to complete.
+				time.Sleep(time.Millisecond * 100)
+				mRepo.AssertNotCalled(t, "UpsertUser", mock.Anything, mock.Anything)
 			}
 
 			// Verify response code.
