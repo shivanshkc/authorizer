@@ -53,6 +53,12 @@ func TestHandler_Auth_Validations(t *testing.T) {
 			errSubstring:     errInvalidCCU.Error(),
 		},
 		{
+			name:             "redirect_url is not a valid URL",
+			inputProvider:    mProvider.name,
+			inputRedirectURL: "invalid-url@@",
+			errSubstring:     errInvalidCCU.Error(),
+		},
+		{
 			name:             "Allow list does not contain the redirect_url",
 			inputProvider:    mProvider.name,
 			inputRedirectURL: mHandler.config.AllowedRedirectURLs[0] + "-random",
