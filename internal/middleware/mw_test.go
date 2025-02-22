@@ -8,6 +8,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/shivanshkc/authorizer/internal/config"
 	"github.com/shivanshkc/authorizer/internal/logger"
 	"github.com/shivanshkc/authorizer/internal/utils/errutils"
@@ -80,10 +82,7 @@ func TestMiddleware_CORS(t *testing.T) {
 
 	// Check the value of the allow-origin header.
 	allowOriginHeader := rec.Header().Get("Access-Control-Allow-Origin")
-	if allowOriginHeader != "*" {
-		t.Errorf("expected the allow origin header to be * but got: %s", allowOriginHeader)
-		return
-	}
+	require.Equal(t, "http://localhost", allowOriginHeader, "Allow origin header does not match")
 }
 
 // middlewareWithMockLogger returns a middleware instance that uses a mock logger.

@@ -2,9 +2,10 @@ package handler
 
 import (
 	"errors"
-	"github.com/google/uuid"
 	"net/url"
 	"regexp"
+
+	"github.com/google/uuid"
 )
 
 var (
