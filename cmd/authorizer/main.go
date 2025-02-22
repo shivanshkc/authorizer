@@ -57,6 +57,7 @@ func main() {
 		slog.Info("Interruption detected, attempting graceful shutdown...")
 		// Execute all interruption handling here, like HTTP server shutdown, database connection closing etc.
 		ctxCancel()
+		_ = database.Close()
 		server.Shutdown()
 	})
 
