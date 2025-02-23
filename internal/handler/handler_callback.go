@@ -55,7 +55,7 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 	sValue, ok := sValueAny.(stateValue)
 	if !ok {
 		slog.ErrorContext(ctx, "failed to assert to stateValue type", "stateValue", sValueAny)
-		errorRedirect(w, errutils.RequestTimeout(), h.config.AllowedRedirectURLs[0])
+		errorRedirect(w, errutils.InternalServerError(), h.config.AllowedRedirectURLs[0])
 		return
 	}
 
