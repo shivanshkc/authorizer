@@ -271,6 +271,16 @@ func TestHandler_Callback(t *testing.T) {
 			w, r, err := createMockCallbackWR(mProviderName, mStateKey, mCode, "")
 			require.NoError(t, err, "Failed to create mock callback response writer and request")
 
+			// Setup databae call expectations.
+			if tc.expectDatabaseCall {
+				mRepo.On("UpsertUser", context.Background(), repository.User{
+					Email:      mClaims.Email,
+					GivenName:  mClaims.GivenName,
+					FamilyName: mClaims.FamilyName,
+					PictureURL: mClaims.Picture,
+				}).Return(nil).Once()
+			}
+
 			// Invoke the method to test.
 			mHandler.Callback(w, r)
 
@@ -278,23 +288,9 @@ func TestHandler_Callback(t *testing.T) {
 			_, found := mHandler.stateMap.LoadAndDelete(mStateKey)
 			require.False(t, found, "Expected state key to be deleted but it was not")
 
-			// Verify if the database operation was invoked and with correct arguments.
-			if tc.expectDatabaseCall {
-				mRepo.On("UpsertUser", context.Background(), repository.User{
-					Email:      mClaims.Email,
-					GivenName:  mClaims.GivenName,
-					FamilyName: mClaims.FamilyName,
-					PictureURL: mClaims.Picture,
-				}).Return(nil)
-
-				// Sleep for some time for the database operation to complete.
-				time.Sleep(time.Millisecond * 100)
-				mRepo.AssertExpectations(t)
-			} else {
-				// Sleep for some time for the database operation to complete.
-				time.Sleep(time.Millisecond * 100)
-				mRepo.AssertNotCalled(t, "UpsertUser", mock.Anything, mock.Anything)
-			}
+			// Sleep for some time for the database operation to complete.
+			time.Sleep(time.Millisecond * 100)
+			mRepo.AssertExpectations(t)
 
 			// Verify provider calls.
 			thisProvider.AssertExpectations(t)
