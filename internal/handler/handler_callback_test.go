@@ -271,7 +271,7 @@ func TestHandler_Callback(t *testing.T) {
 			w, r, err := createMockCallbackWR(mProviderName, mStateKey, mCode, "")
 			require.NoError(t, err, "Failed to create mock callback response writer and request")
 
-			// Setup databae call expectations.
+			// Setup database call expectations.
 			if tc.expectDatabaseCall {
 				mRepo.On("UpsertUser", context.Background(), repository.User{
 					Email:      mClaims.Email,

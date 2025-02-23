@@ -17,14 +17,19 @@ import (
 )
 
 func TestHandler_Auth_Validations(t *testing.T) {
-	mHandler := &Handler{config: config.Config{AllowedRedirectURLs: []string{"https://allowed.com"}}}
+	// Requests carrying this provider name will pass the provider check.
+	const correctProviderName = "google"
+	// Requests carrying this redirect URL will pass the redirect URL check.
+	const allowedRedirectURL = "https://allowed.com"
+	// For brevity.
+	mConfig := config.Config{AllowedRedirectURLs: []string{allowedRedirectURL}}
 
 	for _, tc := range []struct {
 		name string
 		// Request inputs.
 		inputProviderName string
 		inputRedirectURL  string
-		// Expectations
+		// Expectations.
 		expectProviderCall bool
 		errSubstring       string
 	}{
@@ -35,37 +40,37 @@ func TestHandler_Auth_Validations(t *testing.T) {
 		},
 		{
 			name:              "Invalid provider character",
-			inputProviderName: "google$$",
+			inputProviderName: correctProviderName + "$$",
 			errSubstring:      errInvalidProvider.Error(),
 		},
 		{
 			name:              "Absent redirect_url",
-			inputProviderName: "google",
+			inputProviderName: correctProviderName,
 			inputRedirectURL:  "",
 			errSubstring:      errInvalidCCU.Error(),
 		},
 		{
 			name:              "Too long redirect_url",
-			inputProviderName: "google",
+			inputProviderName: correctProviderName,
 			inputRedirectURL:  strings.Repeat("a", 201),
 			errSubstring:      errInvalidCCU.Error(),
 		},
 		{
 			name:              "redirect_url is not a valid URL",
-			inputProviderName: "google",
+			inputProviderName: correctProviderName,
 			inputRedirectURL:  "invalid-url@@",
 			errSubstring:      errInvalidCCU.Error(),
 		},
 		{
 			name:              "Allow list does not contain the redirect_url",
-			inputProviderName: "google",
-			inputRedirectURL:  mHandler.config.AllowedRedirectURLs[0] + "-random",
+			inputProviderName: correctProviderName,
+			inputRedirectURL:  allowedRedirectURL + "-random",
 			errSubstring:      errUnknownRedirectURL.Error(),
 		},
 		{
 			name:               "Unknown provider",
-			inputProviderName:  "google-random",
-			inputRedirectURL:   mHandler.config.AllowedRedirectURLs[0],
+			inputProviderName:  correctProviderName + "-random",
+			inputRedirectURL:   allowedRedirectURL,
 			expectProviderCall: true,
 			errSubstring:       errUnsupportedProvider.Error(),
 		},
@@ -79,11 +84,11 @@ func TestHandler_Auth_Validations(t *testing.T) {
 			// Prepare the mock provider instance.
 			mProvider := &mockProvider{}
 			if tc.expectProviderCall {
-				mProvider.On("Name").Return("google").Once()
+				mProvider.On("Name").Return(correctProviderName).Once()
 			}
 
 			// Prepare and call the method to test.
-			mHandler.googleProvider = mProvider
+			mHandler := &Handler{config: mConfig, googleProvider: mProvider}
 			mHandler.Auth(rr, req)
 
 			// Verifications.
