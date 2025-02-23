@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/shivanshkc/authorizer/pkg/oauth"
@@ -22,15 +23,13 @@ func TestHandler_Check(t *testing.T) {
 		Picture:    "mockPicture",
 	}
 
-	// Common mock implementations.
-	mProvider := &mockProvider{issuers: []string{"mockIssuer1", "mockIssuer2"}, claims: mClaims}
-	mProviderBadToken := &mockProvider{issuers: mProvider.issuers, errDecodeToken: errors.New("mock error")}
-	mHandler := &Handler{googleProvider: mProvider}
+	mIssuer := "mockIssuer"
+	errMock := errors.New("mock error")
 
 	// Base64 encoded token payloads for various cases.
 	badJSONPayload := base64.RawURLEncoding.EncodeToString([]byte(`invalidJSON`))
-	badIssuerPayload := base64.RawURLEncoding.EncodeToString([]byte(`{"iss":"` + mProvider.issuers[0] + `-random"}`))
-	correctIssuerPayload := base64.RawURLEncoding.EncodeToString([]byte(`{"iss":"` + mProvider.issuers[0] + `"}`))
+	badIssuerPayload := base64.RawURLEncoding.EncodeToString([]byte(`{"iss":"` + mIssuer + `-random"}`))
+	correctIssuerPayload := base64.RawURLEncoding.EncodeToString([]byte(`{"iss":"` + mIssuer + `"}`))
 
 	for _, tc := range []struct {
 		name string
@@ -38,7 +37,7 @@ func TestHandler_Check(t *testing.T) {
 		inCookieName  string
 		inCookieValue string
 		// Mock implementations.
-		mockProvider *mockProvider
+		providerFunc func() *mockProvider
 		// Expectations
 		expectDecodeCall     bool
 		expectedResponseCode int
@@ -47,6 +46,7 @@ func TestHandler_Check(t *testing.T) {
 		{
 			name:                 "Cookie absent, error expected",
 			inCookieName:         accessTokenCookieName + "-random",
+			providerFunc:         func() *mockProvider { return nil },
 			expectedResponseCode: http.StatusUnauthorized,
 			expectedHeaders:      map[string]string{},
 		},
@@ -54,6 +54,7 @@ func TestHandler_Check(t *testing.T) {
 			name:                 "Token does not contain three dot separated parts, error expected",
 			inCookieName:         accessTokenCookieName,
 			inCookieValue:        "headers.payload",
+			providerFunc:         func() *mockProvider { return nil },
 			expectedResponseCode: http.StatusUnauthorized,
 			expectedHeaders:      map[string]string{},
 		},
@@ -61,6 +62,7 @@ func TestHandler_Check(t *testing.T) {
 			name:                 "Token payload is not valid base64, error expected",
 			inCookieName:         accessTokenCookieName,
 			inCookieValue:        "headers.invalidBase64.signature",
+			providerFunc:         func() *mockProvider { return nil },
 			expectedResponseCode: http.StatusUnauthorized,
 			expectedHeaders:      map[string]string{},
 		},
@@ -68,30 +70,48 @@ func TestHandler_Check(t *testing.T) {
 			name:                 "Token payload is valid base64 but not valid JSON when decoded, error expected",
 			inCookieName:         accessTokenCookieName,
 			inCookieValue:        "headers." + badJSONPayload + ".signature",
+			providerFunc:         func() *mockProvider { return nil },
 			expectedResponseCode: http.StatusUnauthorized,
 			expectedHeaders:      map[string]string{},
 		},
 		{
-			name:                 "Token issuer does not correspond to any provider, error expected",
-			inCookieName:         accessTokenCookieName,
-			inCookieValue:        "headers." + badIssuerPayload + ".signature",
+			name:          "Token issuer does not correspond to any provider, error expected",
+			inCookieName:  accessTokenCookieName,
+			inCookieValue: "headers." + badIssuerPayload + ".signature",
+			providerFunc: func() *mockProvider {
+				provider := &mockProvider{}
+				provider.On("Issuers").Return([]string{mIssuer + "$$"}).Once()
+				return provider
+			},
 			expectedResponseCode: http.StatusUnauthorized,
 			expectedHeaders:      map[string]string{},
 		},
 		{
-			name:                 "Token verification fails, error expected",
-			inCookieName:         accessTokenCookieName,
-			inCookieValue:        "headers." + correctIssuerPayload + ".signature",
-			mockProvider:         mProviderBadToken,
+			name:          "Token verification fails, error expected",
+			inCookieName:  accessTokenCookieName,
+			inCookieValue: "headers." + correctIssuerPayload + ".signature",
+			providerFunc: func() *mockProvider {
+				provider := &mockProvider{}
+				provider.On("Issuers").Return([]string{mIssuer}).Once()
+				provider.On("DecodeToken", mock.Anything, "headers."+correctIssuerPayload+".signature").
+					Return(oauth.Claims{}, errMock).Once()
+				return provider
+			},
 			expectDecodeCall:     true,
 			expectedResponseCode: http.StatusUnauthorized,
 			expectedHeaders:      map[string]string{},
 		},
 		{
-			name:                 "Everything good",
-			inCookieName:         accessTokenCookieName,
-			inCookieValue:        "headers." + correctIssuerPayload + ".signature",
-			mockProvider:         mProvider,
+			name:          "Everything good",
+			inCookieName:  accessTokenCookieName,
+			inCookieValue: "headers." + correctIssuerPayload + ".signature",
+			providerFunc: func() *mockProvider {
+				provider := &mockProvider{}
+				provider.On("Issuers").Return([]string{mIssuer}).Once()
+				provider.On("DecodeToken", mock.Anything, "headers."+correctIssuerPayload+".signature").
+					Return(mClaims, nil).Once()
+				return provider
+			},
 			expectDecodeCall:     true,
 			expectedResponseCode: http.StatusOK,
 			expectedHeaders: map[string]string{
@@ -109,10 +129,8 @@ func TestHandler_Check(t *testing.T) {
 			w, r, err := createMockCheckWR(cookie)
 			require.NoError(t, err, "Failed to create mock response writer and request")
 
-			// If a specific provider implementation is available for this test case, use it.
-			if tc.mockProvider != nil {
-				mHandler.googleProvider = tc.mockProvider
-			}
+			mProvider := tc.providerFunc()
+			mHandler := &Handler{googleProvider: mProvider}
 			// Invoke the method to be tested.
 			mHandler.Check(w, r)
 
@@ -123,11 +141,7 @@ func TestHandler_Check(t *testing.T) {
 				return
 			}
 
-			// If DecodeToken is expected to be called, make sure it's called with the right arguments.
-			if tc.expectDecodeCall {
-				require.Equal(t, tc.inCookieValue, tc.mockProvider.argDecodeToken,
-					"DecodeToken called with unexpected args")
-			}
+			mProvider.AssertExpectations(t)
 
 			// Verify headers.
 			require.Equal(t, tc.expectedHeaders, map[string]string{

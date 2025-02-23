@@ -156,31 +156,23 @@ func TestHandler_Callback_Validations(t *testing.T) {
 
 func TestHandler_Callback(t *testing.T) {
 	// Common mock inputs.
-	errMock := errors.New("mock error")
-	mStateKey, mCCU := uuid.NewString(), "https://allowed.com"
-	mockCode := "4/0ASVgi3Iwlq42Bl8wh6-XUEpdSNFremRaxzXPWpRZxqYWW-xGo54-DAV94ZbLKx033sG5qA"
-	mStateValue := stateValue{CodeVerifier: "anything", ClientCallbackURL: mCCU}
-
-	// Common mock implementations.
-	mProvider := &mockProvider{
-		name:             "google",
-		errTokenFromCode: nil,
-		token:            "mockToken.Darth.Vader",
-		errDecodeToken:   nil,
-		claims: oauth.Claims{
-			Iss:        "mockIssuer",
-			Exp:        time.Now().Add(time.Hour),
-			Email:      "mock@mock.com",
-			GivenName:  "mockGivenName",
-			FamilyName: "mockFamilyName",
-			Picture:    "mockPicture",
-		},
+	mProviderName, mStateKey := "google", uuid.NewString()
+	mCode := "4/0ASVgi3Iwlq42Bl8wh6-XUEpdSNFremRaxzXPWpRZxqYWW-xGo54-DAV94ZbLKx033sG5qA"
+	mToken := "header.payload.signature"
+	mStateValue := stateValue{CodeVerifier: "anything", ClientCallbackURL: "https://allowed.com"}
+	mClaims := oauth.Claims{
+		Iss:        "mockIssuer",
+		Exp:        time.Now().Add(time.Hour),
+		Email:      "mock@mock.com",
+		GivenName:  "mockGivenName",
+		FamilyName: "mockFamilyName",
+		Picture:    "mockPicture",
 	}
+	errMock := errors.New("mock error")
 
 	mHandler := &Handler{
-		config:         config.Config{AllowedRedirectURLs: []string{mCCU}},
-		stateMap:       &sync.Map{},
-		googleProvider: mProvider,
+		config:   config.Config{AllowedRedirectURLs: []string{mStateValue.ClientCallbackURL}},
+		stateMap: &sync.Map{},
 	}
 
 	for _, tc := range []struct {
@@ -189,61 +181,71 @@ func TestHandler_Callback(t *testing.T) {
 		providerFunc func() *mockProvider
 		isHTTPS      bool
 		// Expectations.
-		expectTokenFromCodeCall bool
-		expectDecodeTokenCall   bool
-		expectDatabaseCall      bool
-		errSubstring            string
+		expectDatabaseCall bool
+		errSubstring       string
 	}{
 		{
-			name:                    "Everything good, application on HTTPS domain, no errors",
-			providerFunc:            func() *mockProvider { return mProvider.Clone() },
-			isHTTPS:                 true,
-			expectTokenFromCodeCall: true,
-			expectDecodeTokenCall:   true,
-			expectDatabaseCall:      true,
-			errSubstring:            "",
+			name: "Everything good, application on HTTPS domain, no errors",
+			providerFunc: func() *mockProvider {
+				mProvider := &mockProvider{}
+				mProvider.On("Name").Return(mProviderName).Once()
+				mProvider.On("TokenFromCode", mock.Anything, mCode, mock.Anything).
+					Return(mToken, nil).Once()
+				mProvider.On("DecodeToken", mock.Anything, mToken).
+					Return(mClaims, nil).Once()
+				return mProvider
+			},
+			isHTTPS:            true,
+			expectDatabaseCall: true,
+			errSubstring:       "",
 		},
 		{
-			name:                    "Everything good, application on HTTP domain, no errors",
-			providerFunc:            func() *mockProvider { return mProvider.Clone() },
-			isHTTPS:                 false,
-			expectTokenFromCodeCall: true,
-			expectDecodeTokenCall:   true,
-			expectDatabaseCall:      true,
-			errSubstring:            "",
+			name: "Everything good, application on HTTP domain, no errors",
+			providerFunc: func() *mockProvider {
+				mProvider := &mockProvider{}
+				mProvider.On("Name").Return(mProviderName).Once()
+				mProvider.On("TokenFromCode", mock.Anything, mCode, mock.Anything).
+					Return(mToken, nil).Once()
+				mProvider.On("DecodeToken", mock.Anything, mToken).
+					Return(mClaims, nil).Once()
+				return mProvider
+			},
+			isHTTPS:            false,
+			expectDatabaseCall: true,
+			errSubstring:       "",
 		},
 		{
 			name: "Unknown provider",
 			providerFunc: func() *mockProvider {
-				p := mProvider.Clone()
-				p.name += "-unknown"
-				return p
+				mProvider := &mockProvider{}
+				mProvider.On("Name").Return(mProviderName + "$$").Once()
+				return mProvider
 			},
-			expectTokenFromCodeCall: false,
-			expectDecodeTokenCall:   false,
-			errSubstring:            errutils.InternalServerError().Error(),
+			errSubstring: errutils.InternalServerError().Error(),
 		},
 		{
 			name: "TokenFromCode method returns error",
 			providerFunc: func() *mockProvider {
-				p := mProvider.Clone()
-				p.errTokenFromCode = errMock
-				return p
+				mProvider := &mockProvider{}
+				mProvider.On("Name").Return(mProviderName).Once()
+				mProvider.On("TokenFromCode", mock.Anything, mCode, mock.Anything).
+					Return("", errMock).Once()
+				return mProvider
 			},
-			expectTokenFromCodeCall: true,
-			expectDecodeTokenCall:   false,
-			errSubstring:            errutils.InternalServerError().Error(),
+			errSubstring: errutils.InternalServerError().Error(),
 		},
 		{
 			name: "DecodeToken method returns error",
 			providerFunc: func() *mockProvider {
-				p := mProvider.Clone()
-				p.errDecodeToken = errMock
-				return p
+				mProvider := &mockProvider{}
+				mProvider.On("Name").Return(mProviderName).Once()
+				mProvider.On("TokenFromCode", mock.Anything, mCode, mock.Anything).
+					Return(mToken, nil).Once()
+				mProvider.On("DecodeToken", mock.Anything, mToken).
+					Return(oauth.Claims{}, errMock).Once()
+				return mProvider
 			},
-			expectTokenFromCodeCall: true,
-			expectDecodeTokenCall:   true,
-			errSubstring:            errutils.InternalServerError().Error(),
+			errSubstring: errutils.InternalServerError().Error(),
 		},
 	} {
 		tc := tc
@@ -266,7 +268,7 @@ func TestHandler_Callback(t *testing.T) {
 			mHandler.repo = mRepo
 
 			// Create mock response writer and request.
-			w, r, err := createMockCallbackWR(mProvider.name, mStateKey, mockCode, "")
+			w, r, err := createMockCallbackWR(mProviderName, mStateKey, mCode, "")
 			require.NoError(t, err, "Failed to create mock callback response writer and request")
 
 			// Invoke the method to test.
@@ -276,34 +278,13 @@ func TestHandler_Callback(t *testing.T) {
 			_, found := mHandler.stateMap.LoadAndDelete(mStateKey)
 			require.False(t, found, "Expected state key to be deleted but it was not")
 
-			// Verify if the provider methods were invoked and with correct arguments.
-			if tc.expectTokenFromCodeCall {
-				require.Equal(t, mockCode, thisProvider.argCode,
-					"TokenFromCode was not called with the correct auth code")
-				require.Equal(t, mStateValue.CodeVerifier, thisProvider.argCodeVerifier,
-					"TokenFromCode was not called with the correct code verifier")
-			} else {
-				require.Equal(t, "", thisProvider.argCode,
-					"TokenFromCode unexpectedly called, was the mockProvider instance correctly reset?")
-				require.Equal(t, "", thisProvider.argCodeVerifier,
-					"TokenFromCode unexpectedly called, was the mockProvider instance correctly reset?")
-			}
-
-			if tc.expectDecodeTokenCall {
-				require.Equal(t, thisProvider.token, thisProvider.argDecodeToken,
-					"DecodeToken was not called with correct arguments")
-			} else {
-				require.Equal(t, "", thisProvider.argDecodeToken,
-					"DecodeToken unexpectedly called, was the mockProvider instance correctly reset?")
-			}
-
 			// Verify if the database operation was invoked and with correct arguments.
 			if tc.expectDatabaseCall {
 				mRepo.On("UpsertUser", context.Background(), repository.User{
-					Email:      thisProvider.claims.Email,
-					GivenName:  thisProvider.claims.GivenName,
-					FamilyName: thisProvider.claims.FamilyName,
-					PictureURL: thisProvider.claims.Picture,
+					Email:      mClaims.Email,
+					GivenName:  mClaims.GivenName,
+					FamilyName: mClaims.FamilyName,
+					PictureURL: mClaims.Picture,
 				}).Return(nil)
 
 				// Sleep for some time for the database operation to complete.
@@ -315,12 +296,15 @@ func TestHandler_Callback(t *testing.T) {
 				mRepo.AssertNotCalled(t, "UpsertUser", mock.Anything, mock.Anything)
 			}
 
+			// Verify provider calls.
+			thisProvider.AssertExpectations(t)
+
 			// Verify response code.
 			require.Equal(t, http.StatusFound, w.Code)
 			// Verify redirection URL.
 			parsed, err := url.Parse(w.Header().Get("Location"))
 			require.NoError(t, err, "Expected Location header to be a valid URL")
-			require.Equal(t, mCCU, parsed.Scheme+"://"+parsed.Host)
+			require.Equal(t, mStateValue.ClientCallbackURL, parsed.Scheme+"://"+parsed.Host)
 
 			// Verify in case of error.
 			if tc.errSubstring != "" {
@@ -329,11 +313,11 @@ func TestHandler_Callback(t *testing.T) {
 			}
 
 			// Verify success behaviour.
-			require.Equal(t, parsed.Query().Get("provider"), mProvider.name)
+			require.Equal(t, parsed.Query().Get("provider"), mProviderName)
 			// Get the cookie from the response.
 			cookie := w.Result().Cookies()[0]
 			// Verify cookie fields.
-			require.Equal(t, thisProvider.token, cookie.Value, "Cookie value does not match")
+			require.Equal(t, mToken, cookie.Value, "Cookie value does not match")
 			require.Equal(t, "/", cookie.Path, "Cookie path does not match")
 			require.NotEqual(t, 0, cookie.MaxAge, "Cookie max age does not match")
 			require.Equal(t, tc.isHTTPS, cookie.Secure, "Cookie secure does not match")

@@ -10,101 +10,109 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/shivanshkc/authorizer/internal/config"
-	"github.com/shivanshkc/authorizer/pkg/oauth"
 )
 
 func TestHandler_Auth_Validations(t *testing.T) {
-	mProvider := &mockProvider{name: "google"}
 	mHandler := &Handler{config: config.Config{AllowedRedirectURLs: []string{"https://allowed.com"}}}
 
 	for _, tc := range []struct {
 		name string
-		// Mock implementations.
-		mockProvider oauth.Provider
 		// Request inputs.
-		inputProvider    string
-		inputRedirectURL string
+		inputProviderName string
+		inputRedirectURL  string
 		// Expectations
-		errSubstring string
+		expectProviderCall bool
+		errSubstring       string
 	}{
 		{
-			name:          "Too long provider length",
-			inputProvider: strings.Repeat("a", 21),
-			errSubstring:  errInvalidProvider.Error(),
+			name:              "Too long provider length",
+			inputProviderName: strings.Repeat("a", 21),
+			errSubstring:      errInvalidProvider.Error(),
 		},
 		{
-			name:          "Invalid provider character",
-			inputProvider: mProvider.name + "$$",
-			errSubstring:  errInvalidProvider.Error(),
+			name:              "Invalid provider character",
+			inputProviderName: "google$$",
+			errSubstring:      errInvalidProvider.Error(),
 		},
 		{
-			name:             "Absent redirect_url",
-			inputProvider:    mProvider.name,
-			inputRedirectURL: "",
-			errSubstring:     errInvalidCCU.Error(),
+			name:              "Absent redirect_url",
+			inputProviderName: "google",
+			inputRedirectURL:  "",
+			errSubstring:      errInvalidCCU.Error(),
 		},
 		{
-			name:             "Too long redirect_url",
-			inputProvider:    mProvider.name,
-			inputRedirectURL: strings.Repeat("a", 201),
-			errSubstring:     errInvalidCCU.Error(),
+			name:              "Too long redirect_url",
+			inputProviderName: "google",
+			inputRedirectURL:  strings.Repeat("a", 201),
+			errSubstring:      errInvalidCCU.Error(),
 		},
 		{
-			name:             "redirect_url is not a valid URL",
-			inputProvider:    mProvider.name,
-			inputRedirectURL: "invalid-url@@",
-			errSubstring:     errInvalidCCU.Error(),
+			name:              "redirect_url is not a valid URL",
+			inputProviderName: "google",
+			inputRedirectURL:  "invalid-url@@",
+			errSubstring:      errInvalidCCU.Error(),
 		},
 		{
-			name:             "Allow list does not contain the redirect_url",
-			inputProvider:    mProvider.name,
-			inputRedirectURL: mHandler.config.AllowedRedirectURLs[0] + "-random",
-			errSubstring:     errUnknownRedirectURL.Error(),
+			name:              "Allow list does not contain the redirect_url",
+			inputProviderName: "google",
+			inputRedirectURL:  mHandler.config.AllowedRedirectURLs[0] + "-random",
+			errSubstring:      errUnknownRedirectURL.Error(),
 		},
 		{
-			name:             "Unknown provider",
-			mockProvider:     mProvider,
-			inputProvider:    mProvider.name + "-random",
-			inputRedirectURL: mHandler.config.AllowedRedirectURLs[0],
-			errSubstring:     errUnsupportedProvider.Error(),
+			name:               "Unknown provider",
+			inputProviderName:  "google-random",
+			inputRedirectURL:   mHandler.config.AllowedRedirectURLs[0],
+			expectProviderCall: true,
+			errSubstring:       errUnsupportedProvider.Error(),
 		},
 	} {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			// Create mock response writer and request.
-			rr, req, err := createMockAuthWR(tc.inputProvider, tc.inputRedirectURL)
+			rr, req, err := createMockAuthWR(tc.inputProviderName, tc.inputRedirectURL)
 			require.NoError(t, err, "Failed to create mock response writer and request")
 
+			// Prepare the mock provider instance.
+			mProvider := &mockProvider{}
+			if tc.expectProviderCall {
+				mProvider.On("Name").Return("google").Once()
+			}
+
 			// Prepare and call the method to test.
-			mHandler.googleProvider = tc.mockProvider
+			mHandler.googleProvider = mProvider
 			mHandler.Auth(rr, req)
 
 			// Verifications.
 			require.Equal(t, http.StatusBadRequest, rr.Code, "Expected 400 status code")
 			require.Contains(t, rr.Body.String(), tc.errSubstring)
+			mProvider.AssertExpectations(t)
 		})
 	}
 }
 
 func TestHandler_Auth(t *testing.T) {
 	// Mock quantities for test.
-	mProvider := "google"
+	mProviderName := "google"
 	mRedirectURL := "https://allowed.com"
 	mProviderAuthURL := "https://auth.google.com"
 
+	// Setup mock provider.
+	mProvider := &mockProvider{}
+	mProvider.On("Name").Return(mProviderName).Once()
+	mProvider.On("GetAuthURL", mock.Anything, mock.Anything, mock.Anything).Return(mProviderAuthURL).Once()
+
 	// Create the mock handler.
-	mHandler := NewHandler(
-		config.Config{AllowedRedirectURLs: []string{mRedirectURL}},
-		&mockProvider{name: mProvider, authURL: mProviderAuthURL}, nil, nil)
+	mHandler := NewHandler(config.Config{AllowedRedirectURLs: []string{mRedirectURL}}, mProvider, nil, nil)
 
 	// Changing the state key expiry time to a shorter time so the test doesn't take too long.
 	stateKeyExpiry = time.Second
 
 	// Create mock response writer and request.
-	rr, req, err := createMockAuthWR(mProvider, mRedirectURL)
+	rr, req, err := createMockAuthWR(mProviderName, mRedirectURL)
 	require.NoError(t, err, "Failed to create mock response writer and request")
 
 	// Invoke the method to test.
@@ -147,6 +155,7 @@ func TestHandler_Auth(t *testing.T) {
 	// Verify response.
 	require.Equal(t, http.StatusFound, rr.Code)
 	require.Equal(t, mProviderAuthURL, rr.Header().Get("Location"))
+	mProvider.AssertExpectations(t)
 }
 
 // createMockAuthWR creates a mock ResponseWriter and Request to test the Auth handler.
