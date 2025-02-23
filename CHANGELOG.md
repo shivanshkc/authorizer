@@ -1,3 +1,10 @@
+## [3.0.1](https://github.com/shivanshkc/authorizer/compare/v3.0.0...v3.0.1) (2025-02-23)
+
+
+### Bug Fixes
+
+* **ci:** no host network usage in containers, readme progress ([a64754e](https://github.com/shivanshkc/authorizer/commit/a64754ef7c75f3e03cac83bf169950c5a0d3eaa7))
+
 # [3.0.0](https://github.com/shivanshkc/authorizer/compare/v2.3.0...v3.0.0) (2025-02-23)
 
 
