@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -78,8 +77,7 @@ func TestHandler_Auth_Validations(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			// Create mock response writer and request.
-			rr, req, err := createMockAuthWR(tc.inputProviderName, tc.inputRedirectURL)
-			require.NoError(t, err, "Failed to create mock response writer and request")
+			w, r := createMockAuthWR(tc.inputProviderName, tc.inputRedirectURL)
 
 			// Prepare the mock provider instance.
 			mProvider := &mockProvider{}
@@ -89,41 +87,43 @@ func TestHandler_Auth_Validations(t *testing.T) {
 
 			// Prepare and call the method to test.
 			mHandler := &Handler{config: mConfig, googleProvider: mProvider}
-			mHandler.Auth(rr, req)
+			mHandler.Auth(w, r)
 
 			// Verifications.
-			require.Equal(t, http.StatusBadRequest, rr.Code, "Expected 400 status code")
-			require.Contains(t, rr.Body.String(), tc.errSubstring)
+			require.Equal(t, http.StatusBadRequest, w.Code, "Expected 400 status code")
+			require.Contains(t, w.Body.String(), tc.errSubstring)
 			mProvider.AssertExpectations(t)
 		})
 	}
 }
 
 func TestHandler_Auth(t *testing.T) {
-	// Mock quantities for test.
-	mProviderName := "google"
-	mRedirectURL := "https://allowed.com"
-	mProviderAuthURL := "https://auth.google.com"
+	// Reusable quantities.
+	const providerName = "google"
+	const mProviderAuthURL = "https://auth.google.com"
+	const allowedRedirectURL = "https://allowed.com"
+
+	// For brevity.
+	mConfig := config.Config{AllowedRedirectURLs: []string{allowedRedirectURL}}
+
+	// Create mock response writer and request.
+	w, r := createMockAuthWR(providerName, allowedRedirectURL)
 
 	// Setup mock provider.
 	mProvider := &mockProvider{}
-	mProvider.On("Name").Return(mProviderName).Once()
-	mProvider.On("GetAuthURL", mock.Anything, mock.Anything, mock.Anything).Return(mProviderAuthURL).Once()
+	mProvider.On("Name").Return(providerName).Once()
+	mProvider.On("GetAuthURL", r.Context(), mock.Anything, mock.Anything).Return(mProviderAuthURL).Once()
 
 	// Create the mock handler.
-	mHandler := NewHandler(config.Config{AllowedRedirectURLs: []string{mRedirectURL}}, mProvider, nil, nil)
+	mHandler := NewHandler(mConfig, mProvider, nil, nil)
 
 	// Changing the state key expiry time to a shorter time so the test doesn't take too long.
 	stateKeyExpiry = time.Second
 
-	// Create mock response writer and request.
-	rr, req, err := createMockAuthWR(mProviderName, mRedirectURL)
-	require.NoError(t, err, "Failed to create mock response writer and request")
-
 	// Invoke the method to test.
-	mHandler.Auth(rr, req)
+	mHandler.Auth(w, r)
 
-	// Testable quantities about the state map.
+	// Quantities to verify about the state map.
 	var insertedStateKeyAny, insertedStateValueAny any
 	var mapSize int
 	// Loop over the state map to populate the testable quantities.
@@ -150,7 +150,7 @@ func TestHandler_Auth(t *testing.T) {
 
 	// State value verification.
 	require.NotEmpty(t, insertedStateValue.CodeVerifier, "Code verifier is empty")
-	require.Equal(t, mRedirectURL, insertedStateValue.ClientCallbackURL, "CCU does not match")
+	require.Equal(t, allowedRedirectURL, insertedStateValue.ClientCallbackURL, "CCU does not match")
 
 	// State key must be deleted after expiry.
 	time.Sleep(stateKeyExpiry + 500*time.Millisecond)
@@ -158,25 +158,22 @@ func TestHandler_Auth(t *testing.T) {
 	require.False(t, found, "State key was not deleted after expiry")
 
 	// Verify response.
-	require.Equal(t, http.StatusFound, rr.Code)
-	require.Equal(t, mProviderAuthURL, rr.Header().Get("Location"))
+	require.Equal(t, http.StatusFound, w.Code)
+	require.Equal(t, mProviderAuthURL, w.Header().Get("Location"))
 	mProvider.AssertExpectations(t)
 }
 
 // createMockAuthWR creates a mock ResponseWriter and Request to test the Auth handler.
-func createMockAuthWR(provider, redirectURL string) (*httptest.ResponseRecorder, *http.Request, error) {
+func createMockAuthWR(provider, redirectURL string) (*httptest.ResponseRecorder, *http.Request) {
 	// Mock HTTP request.
-	req, err := http.NewRequest(http.MethodGet, "/mock", nil)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create HTTP request")
-	}
-
+	req := httptest.NewRequest(http.MethodGet, "/mock", nil)
 	// Set path params.
 	req = mux.SetURLVars(req, map[string]string{"provider": provider})
-	// Set query params.
-	q := req.URL.Query()
-	q.Set("redirect_url", redirectURL)
-	req.URL.RawQuery = q.Encode()
 
-	return httptest.NewRecorder(), req, nil
+	// Set query params.
+	query := req.URL.Query()
+	query.Set("redirect_url", redirectURL)
+	req.URL.RawQuery = query.Encode()
+
+	return httptest.NewRecorder(), req
 }
