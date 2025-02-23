@@ -45,15 +45,15 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-  deploy:
-    name: Deploy
-    needs: semver
-    runs-on: ubuntu-latest
-    steps:
-     - uses: actions/checkout@v4
-     - uses: ./.github/actions/deploy
-       with:
-         service-account-key: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
-         region: us-central1
-         repository: authorizer
-         service_name: authorizer
+#  deploy:
+#    name: Deploy
+#    needs: semver
+#    runs-on: ubuntu-latest
+#    steps:
+#     - uses: actions/checkout@v4
+#     - uses: ./.github/actions/deploy
+#       with:
+#         service-account-key: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+#         region: us-central1
+#         repository: authorizer
+#         service_name: authorizer
