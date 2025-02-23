@@ -43,7 +43,7 @@ lint:
 # Builds the docker image for the project.
 image:
 	@echo "+$@"
-	@$(DOCKER) build --network host --file Containerfile --tag $(application_image_name):latest .
+	@$(DOCKER) build --file Containerfile --tag $(application_image_name):latest .
 
 # Runs the project container assuming the image is already built.
 container:
@@ -52,7 +52,7 @@ container:
 	@$(DOCKER) rm -f $(application_container_name)
 
 	@echo "################ Running new container ################"
-	@$(DOCKER) run --name $(application_container_name) --detach --net host --restart unless-stopped \
+	@$(DOCKER) run --name $(application_container_name) --detach --publish 8080:8080 \
 		--volume $(PWD)/configs/configs.yaml:/etc/$(application_name)/configs.yaml \
 		$(application_image_name):latest
 
