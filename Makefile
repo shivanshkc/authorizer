@@ -3,7 +3,6 @@ SHELL=/usr/bin/env bash
 # Project specific properties.
 application_name        = authorizer
 application_binary_name = authorizer
-application_addr        = http://localhost:8080
 
 # Container specific properties.
 application_image_name     = authorizer
@@ -11,6 +10,9 @@ application_container_name = authorizer-1
 
 # Support both podman and docker.
 DOCKER=$(shell which podman || which docker || echo 'docker')
+
+# Database DSN for migrations.
+database_dsn = "postgres://postgres:dev@localhost:5432/authorizer?sslmode=disable"
 
 # Builds the project.
 build:
@@ -54,30 +56,12 @@ container:
 		--volume $(PWD)/configs/configs.yaml:/etc/$(application_name)/configs.yaml \
 		$(application_image_name):latest
 
-# Shows the goroutine block profiling data.
-blockprof:
+# Database migrations.
+migrate-up:
 	@echo "+$@"
-	@mkdir pprof || true
-	@curl $(application_addr)/debug/pprof/block > pprof/block.prof && \
-		go tool pprof --text bin/$(application_binary_name) pprof/block.prof
+	@migrate -verbose -path db/migrations -database $(database_dsn) up
 
-# Shows the mutex usage data.
-mutexprof:
+# Database migrations.
+migrate-down:
 	@echo "+$@"
-	@mkdir pprof || true
-	@curl $(application_addr)/debug/pprof/mutex > pprof/mutex.prof && \
-		go tool pprof --text bin/$(application_binary_name) pprof/mutex.prof
-
-# Shows the heap allocation data.
-heapprof:
-	@echo "+$@"
-	@mkdir pprof || true
-	@curl $(application_addr)/debug/pprof/heap > pprof/heap.prof && \
-		go tool pprof --text bin/$(application_binary_name) pprof/heap.prof
-
-# Shows execution time per function.
-prof:
-	@echo "+$@"
-	@mkdir pprof || true
-	@curl $(application_addr)/debug/pprof/profile?seconds=30 > pprof/profile.prof && \
-		go tool pprof --text bin/$(application_binary_name) pprof/profile.prof
+	@echo "y" | migrate -verbose -path db/migrations -database $(database_dsn) down

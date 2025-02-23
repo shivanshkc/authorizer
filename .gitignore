@@ -7,7 +7,6 @@ bin
 
 # Configs
 configs/configs.yaml
-configs/configs.prod.yaml
 
 # Profiling data
 pprof

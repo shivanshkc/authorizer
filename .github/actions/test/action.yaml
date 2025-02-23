@@ -8,7 +8,7 @@ runs:
     - name: Setting up Go.
       uses: actions/setup-go@v5
       with:
-        go-version: 1.22
+        go-version: 1.23
 
     # Running tests.
     - name: Running tests.
