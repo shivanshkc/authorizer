@@ -2,7 +2,6 @@ package signals
 
 import (
 	"os"
-	"syscall"
 	"testing"
 )
 
@@ -19,12 +18,8 @@ func TestOnSignal(t *testing.T) {
 		OnSignal(func(_ os.Signal) { actionChan <- struct{}{} })
 	}
 
-	// Send a SIGINT manually.
-	if err := syscall.Kill(syscall.Getpid(), syscall.SIGINT); err != nil {
-		t.Errorf("unexpected error in syscall.Kill call: %v", err)
-		return
-	}
-
+	// Trigger actions manually.
+	Manual()
 	// Wait until all actions execute.
 	Wait()
 

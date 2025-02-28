@@ -23,16 +23,23 @@ func Wait() {
 	defaultListener.Wait()
 }
 
+// Manual trigger for action execution.
+//
+// Note that this will have no effect in case a signal has already been detected.
+func Manual() {
+	defaultListener.Manual()
+}
+
 // Listener listens to signals and allows actions to be called whenever a signal is received.
 type Listener struct {
 	// sigChan is where signals are originally received.
 	sigChan chan os.Signal
 	// actions is the list of actions to be called.
 	actions []func(os.Signal)
-	// actionsWaitChan receives an event as soon as all actions are done executing.
-	actionsWaitChan chan struct{}
 	// actionsMutex keeps the actions slice thread safe to use.
 	actionsMutex *sync.RWMutex
+	// actionsWaitChan receives an event as soon as all actions are done executing.
+	actionsWaitChan chan struct{}
 }
 
 // NewListener creates a new Listener instance with the given signals.
@@ -43,10 +50,13 @@ func NewListener(sigs ...os.Signal) *Listener {
 
 	// Instantiate the listener.
 	listener := &Listener{
+		// If the Manual method is called *after* an interruption is received, then sigChan may receive two elements.
+		// The first would be through signal.Notify and the second may be through the Manual method. In this case, the
+		// second element should be ignored and that's why sigChan has a length of 1, to accommodate the extra element.
 		sigChan:         make(chan os.Signal, 1),
 		actions:         nil,
-		actionsWaitChan: make(chan struct{}, 1),
 		actionsMutex:    &sync.RWMutex{},
+		actionsWaitChan: make(chan struct{}),
 	}
 
 	// Listen to the required signals.
@@ -59,8 +69,10 @@ func NewListener(sigs ...os.Signal) *Listener {
 	go func() {
 		var sig os.Signal
 
-		// Block until a signal is detected.
+		// Wait for a signal.
 		<-listener.sigChan
+		// No need to listen for further signals.
+		signal.Stop(listener.sigChan)
 
 		// Read lock.
 		listener.actionsMutex.RLock()
@@ -101,8 +113,18 @@ func (l *Listener) OnSignal(action func(os.Signal)) {
 }
 
 // Wait blocks until all actions have been executed.
+//
+// The listener instance is no longer usable once this method is called.
 func (l *Listener) Wait() {
 	<-l.actionsWaitChan
 	close(l.sigChan)
 	close(l.actionsWaitChan)
+}
+
+// Manual trigger for action execution.
+// This can be deferred in the main function to run cleanup actions even if no interruptions are detected.
+//
+// Note that this will have no effect in case a signal has already been detected.
+func (l *Listener) Manual() {
+	l.sigChan <- syscall.SIGINT
 }
