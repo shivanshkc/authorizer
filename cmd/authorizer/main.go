@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/shivanshkc/authorizer/internal/config"
@@ -33,7 +34,7 @@ func main() {
 	// Root application context.
 	ctx, ctxCancel := context.WithCancel(context.Background())
 	// Cancel root context upon interruption or exit.
-	signals.OnSignal(func(signal os.Signal) { ctxCancel() })
+	signals.OnSignal(func(signal os.Signal) { ctxCancel(); slog.Info("Root context canceled") })
 
 	// Initialize basic dependencies.
 	conf := config.Load()
@@ -47,7 +48,7 @@ func main() {
 	}
 
 	// Close database upon interruption or exit.
-	signals.OnSignal(func(signal os.Signal) { _ = database.Close() })
+	signals.OnSignal(func(signal os.Signal) { _ = database.Close(); slog.Info("Database connection closed") })
 
 	// Instantiate the OAuth client for Google.
 	gCallback := fmt.Sprintf("%s/api/auth/google/callback", conf.Application.BaseURL)
