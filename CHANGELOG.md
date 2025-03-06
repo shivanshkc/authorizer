@@ -1,3 +1,10 @@
+## [3.0.2](https://github.com/shivanshkc/authorizer/compare/v3.0.1...v3.0.2) (2025-03-06)
+
+
+### Bug Fixes
+
+* **ci:** signals package bug fix, better cleanup ([ef5208f](https://github.com/shivanshkc/authorizer/commit/ef5208fc40b2e11af919acef1c967337ec0217e0))
+
 ## [3.0.1](https://github.com/shivanshkc/authorizer/compare/v3.0.0...v3.0.1) (2025-02-23)
 
 
