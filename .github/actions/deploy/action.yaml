@@ -89,6 +89,7 @@ runs:
           --memory=${{ inputs.memory }}
           --port=8080
           --service-account=${{ fromJson(inputs.service-account-key).client_email }}
+          --set-secrets=/etc/${{ inputs.service_name }}/configs.yaml=${{ inputs.service }}-configs:latest \
           --timeout=600
           --cpu-throttling
 
