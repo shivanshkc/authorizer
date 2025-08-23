@@ -14,8 +14,8 @@ inputs:
   service_name:
     description: Name of the service (used for container and directory names)
     required: true
-  service_port:
-    description: Port on which the application will run
+  network_name:
+    description: Name of the docker network
     required: true
   configs_yaml:
     description: Complete configuration YAML content
@@ -91,7 +91,7 @@ runs:
           --detach \
           --name ${{ inputs.service_name }} \
           --restart unless-stopped \
-          --publish 127.0.0.1:${{ inputs.service_port }}:${{ inputs.service_port }} \
+          --network ${{ inputs.network_name }} \
           --volume ~/services/${{ inputs.service_name }}/configs.yaml:/etc/${{ inputs.service_name }}/configs.yaml:ro \
           ${{ inputs.service_name }}:latest
 
