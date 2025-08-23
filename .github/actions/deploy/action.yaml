@@ -1,105 +1,119 @@
-name: Deploy
-description: Deploys the project.
+name: Deploy to Server
+description: Deploy any application to a remote server using Docker
 
 inputs:
-  service-account-key:
-    description: |
-      JSON formatted key for the service account.
-      This can be obtained from the GCP console IAM page.
+  server_ip:
+    description: IP address of the target server
     required: true
-  region:
-    description: |
-      Region for the deployment.
+  ssh_private_key:
+    description: SSH private key for server access
     required: true
-  repository:
-    description: |
-      Name of the repository (GCP Artifacts Registry) where the docker image is present.
+  ssh_username:
+    description: SSH username for server access
     required: true
   service_name:
-    description: |
-      Name of the service that will be displayed in Cloud Run.
+    description: Name of the service (used for container and directory names)
     required: true
-  allow-public-access:
-    description: |
-      Whether to allow public access to the service.
-    required: false
-    default: 'true'
-  memory:
-    description: |
-      Memory allocation for the service.
-    required: false
-    default: '128Mi'
-  max-instances:
-    description: |
-      Maximum number of instances.
-    required: false
-    default: '1'
-
-outputs:
-  url:
-    description: 'The URL of the deployed Cloud Run service'
-    value: ${{ steps.deploy.outputs.url }}
+  service_port:
+    description: Port on which the application will run
+    required: true
+  configs_yaml:
+    description: Complete configuration YAML content
+    required: true
 
 runs:
   using: composite
   steps:
-    # Authenticate with Google Cloud.
-    - name: Authenticate with Google Cloud.
-      uses: google-github-actions/auth@v2
-      with:
-        credentials_json: ${{ inputs.service-account-key }}
-
-    # Set up Google Cloud CLI.
-    - name: Set up Google Cloud CLI.
-      uses: google-github-actions/setup-gcloud@v2
-
-    # Configure docker with credentials.
-    - name: Configure docker with credentials.
-      run: gcloud auth configure-docker ${{ inputs.region }}-docker.pkg.dev
+    - name: Setup SSH key
       shell: bash
-
-    # Build the docker image.
-    - name: Build the docker image.
-      run: docker build -f Containerfile -t ${{ inputs.service_name }}:${{ github.sha }} .
-      shell: bash
-
-    # Push the docker image.
-    - name: Push the docker image.
       run: |
-        set -euo pipefail
+        echo "Setting up SSH key..."
+        mkdir -p ~/.ssh
+        echo "${{ inputs.ssh_private_key }}" > ~/.ssh/deploy_key
+        chmod 600 ~/.ssh/deploy_key
+        ssh-keyscan -H ${{ inputs.server_ip }} >> ~/.ssh/known_hosts
 
-        IMAGE_URL="${{ inputs.region }}-docker.pkg.dev/${{ fromJson(inputs.service-account-key).project_id }}/${{ inputs.repository }}/${{ inputs.service_name }}:${{ github.sha }}"
-
-        docker tag ${{ inputs.service_name }}:${{ github.sha }} "$IMAGE_URL"
-        docker push "$IMAGE_URL"
+    - name: Build Docker image
       shell: bash
-
-    # Deploy to cloud run using official action.
-    - name: Deploy to Cloud Run
-      id: deploy
-      uses: google-github-actions/deploy-cloudrun@v2
-      with:
-        service: ${{ inputs.service_name }}
-        region: ${{ inputs.region }}
-        image: ${{ inputs.region }}-docker.pkg.dev/${{ fromJson(inputs.service-account-key).project_id }}/${{ inputs.repository }}/${{ inputs.service_name }}:${{ github.sha }}
-        flags: |
-          --concurrency=80
-          --min-instances=0
-          --max-instances=${{ inputs.max-instances }}
-          --memory=${{ inputs.memory }}
-          --port=8080
-          --service-account=${{ fromJson(inputs.service-account-key).client_email }}
-          --timeout=600
-          --cpu-throttling
-
-    # Allow public access if requested.
-    - name: Allow public access
-      if: ${{ inputs.allow-public-access == 'true' }}
       run: |
-        set -euo pipefail
+        echo "Building Docker image..."
+        docker build -f Containerfile -t ${{ inputs.service_name }}:latest .
 
-        gcloud run services add-iam-policy-binding ${{ inputs.service_name }} \
-          --region=${{ inputs.region }} \
-          --member=allUsers \
-          --role=roles/run.invoker
+    - name: Save Docker image
       shell: bash
+      run: |
+        echo "Saving Docker image to tarball..."
+        docker save ${{ inputs.service_name }}:latest | gzip > ${{ inputs.service_name }}-image.tar.gz
+
+    - name: Create config file
+      shell: bash
+      run: |
+        echo "Creating configuration file..."
+        cat > configs.yaml << 'EOF'
+        ${{ inputs.configs_yaml }}
+        EOF
+
+    - name: Copy files to server
+      shell: bash
+      run: |
+        echo "Copying files to server..."
+        scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+          ${{ inputs.service_name }}-image.tar.gz configs.yaml \
+          ${{ inputs.ssh_username }}@${{ inputs.server_ip }}:/tmp/
+
+    - name: Deploy on server
+      shell: bash
+      run: |
+        echo "Deploying application on server..."
+        ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+          ${{ inputs.ssh_username }}@${{ inputs.server_ip }} << 'EOF'
+
+        # Stop and remove existing container if it exists
+        docker stop ${{ inputs.service_name }} 2>/dev/null || true
+        docker rm ${{ inputs.service_name }} 2>/dev/null || true
+
+        # Remove old image if it exists
+        docker rmi ${{ inputs.service_name }}:latest 2>/dev/null || true
+
+        # Load new image
+        echo "Loading Docker image..."
+        gunzip -c /tmp/${{ inputs.service_name }}-image.tar.gz | docker load
+
+        # Create application directory
+        mkdir -p ~/services/${{ inputs.service_name }}
+
+        # Move config file to application directory
+        mv /tmp/configs.yaml ~/services/${{ inputs.service_name }}/
+
+        # Run new container
+        echo "Starting new container..."
+        docker run \
+          --detach \
+          --name ${{ inputs.service_name }} \
+          --restart unless-stopped \
+          --publish 127.0.0.1:${{ inputs.service_port }}:${{ inputs.service_port }} \
+          --volume ~/services/${{ inputs.service_name }}/configs.yaml:/etc/${{ inputs.service_name }}/configs.yaml:ro \
+          ${{ inputs.service_name }}:latest
+
+        # Clean up temporary files
+        rm -f /tmp/${{ inputs.service_name }}-image.tar.gz
+
+        # Verify deployment
+        sleep 5
+        if docker ps | grep -q ${{ inputs.service_name }}; then
+          echo "Deployment successful! Container is running."
+          docker ps | grep ${{ inputs.service_name }}
+        else
+          echo "Deployment failed! Container is not running."
+          docker logs ${{ inputs.service_name }}
+          exit 1
+        fi
+        EOF
+
+    - name: Cleanup
+      shell: bash
+      run: |
+        echo "Cleaning up local files..."
+        rm -f ~/.ssh/deploy_key
+        rm -f ${{ inputs.service_name }}-image.tar.gz
+        rm -f configs.yaml

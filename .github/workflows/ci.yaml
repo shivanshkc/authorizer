@@ -30,3 +30,18 @@ jobs:
 
       - name: Build
         run: go build cmd/authorizer/main.go
+
+  deploy:
+    name: Deploy
+    needs: ci
+    runs-on: ubuntu-latest
+    steps:
+     - uses: actions/checkout@v4
+     - uses: ./.github/actions/deploy
+       with:
+        server_ip: ${{ fromJSON(secrets.SSH_DETAILS).server_ip }}
+        ssh_private_key: ${{ fromJSON(secrets.SSH_DETAILS).ssh_private_key }}
+        ssh_username: ${{ fromJSON(secrets.SSH_DETAILS).ssh_username }}
+        service_name: authorizer
+        service_port: 8080
+        configs_yaml: ${{ secrets.CONFIGS_YAML }}
