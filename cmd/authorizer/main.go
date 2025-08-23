@@ -47,6 +47,12 @@ func main() {
 		panic("failed to connect database: " + err.Error())
 	}
 
+	// Verify connection.
+	if err := database.PingContext(ctx); err != nil {
+		panic("failed to ping database: " + err.Error())
+	}
+
+	slog.InfoContext(ctx, "Successfully connected to the database", "addr", conf.Database.Addr)
 	// Close database upon interruption or exit.
 	signals.OnSignal(func(signal os.Signal) { _ = database.Close(); slog.Info("Database connection closed") })
 
