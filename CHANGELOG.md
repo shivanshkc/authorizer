@@ -1,3 +1,10 @@
+## [3.0.3](https://github.com/shivanshkc/authorizer/compare/v3.0.2...v3.0.3) (2025-08-23)
+
+
+### Bug Fixes
+
+* **ci:** enable delployment and refactor actions ([d57570a](https://github.com/shivanshkc/authorizer/commit/d57570a6fe4d04fc6acea5651c487584e1e1c386))
+
 ## [3.0.2](https://github.com/shivanshkc/authorizer/compare/v3.0.1...v3.0.2) (2025-03-06)
 
 
