@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/golang-migrate/migrate/v4"
+
 	"github.com/shivanshkc/authorizer/internal/config"
 	"github.com/shivanshkc/authorizer/internal/handler"
 	"github.com/shivanshkc/authorizer/internal/http"
@@ -16,6 +18,8 @@ import (
 	"github.com/shivanshkc/authorizer/pkg/oauth"
 	"github.com/shivanshkc/authorizer/pkg/signals"
 
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
@@ -40,19 +44,11 @@ func main() {
 	conf := config.Load()
 	logger.Init(os.Stdout, conf.Logger.Level, conf.Logger.Pretty)
 
-	// Connect to database.
-	database, err := sql.Open("pgx", fmt.Sprintf("postgresql://%s:%s@%s/%s?sslmode=disable",
-		conf.Database.Username, conf.Database.Password, conf.Database.Addr, conf.Database.Database))
+	database, err := connectDatabaseAndRunMigrations(ctx, conf)
 	if err != nil {
-		panic("failed to connect database: " + err.Error())
+		panic("failed to connect database and run migrations: " + err.Error())
 	}
 
-	// Verify connection.
-	if err := database.PingContext(ctx); err != nil {
-		panic("failed to ping database: " + err.Error())
-	}
-
-	slog.InfoContext(ctx, "Successfully connected to the database", "addr", conf.Database.Addr)
 	// Close database upon interruption or exit.
 	signals.OnSignal(func(signal os.Signal) { _ = database.Close(); slog.Info("Database connection closed") })
 
@@ -78,4 +74,37 @@ func main() {
 	if err := server.Start(); err != nil {
 		panic("error in server.Start call: " + err.Error())
 	}
+}
+
+func connectDatabaseAndRunMigrations(ctx context.Context, conf config.Config) (*sql.DB, error) {
+	dsn := fmt.Sprintf("postgresql://%s:%s@%s/%s?sslmode=disable", conf.Database.Username,
+		conf.Database.Password, conf.Database.Addr, conf.Database.Database)
+
+	// Connect to database.
+	database, err := sql.Open("pgx", dsn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect database: %w", err)
+	}
+
+	// Verify connection.
+	if err := database.PingContext(ctx); err != nil {
+		return nil, fmt.Errorf("failed to ping database: %w", err)
+	}
+
+	slog.InfoContext(ctx, "Successfully connected to the database", "addr", conf.Database.Addr)
+
+	// Create a client to execute migrations.
+	migrationClient, err := migrate.New("file://db/migrations", dsn)
+	if err != nil {
+		_ = database.Close()
+		return nil, fmt.Errorf("failed to create migration client: %w", err)
+	}
+
+	// Run migrations.
+	if err := migrationClient.Up(); err != nil {
+		_ = database.Close()
+		return nil, fmt.Errorf("failed to run migrations: %w", err)
+	}
+
+	return database, nil
 }
