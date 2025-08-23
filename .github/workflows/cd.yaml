@@ -9,51 +9,54 @@ permissions:
   contents: read
 
 jobs:
-  lint:
-    name: Lint
+  ci:
+    name: CI
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: ./.github/actions/lint
+      - uses: actions/checkout@v4
 
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: ./.github/actions/test
-
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: ./.github/actions/build
+      - name: Setup Go
+        uses: actions/setup-go@v5
         with:
-          application-name: authorizer
+          go-version: 1.23
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --fix=false --timeout 5m
+
+      - name: Test
+        run: CGO_ENABLED=1 go test -race ./...
+
+      - name: Build
+        run: go build cmd/authorizer/main.go
 
   semver:
     name: Semver
-    needs: [ lint, test, build ]
+    needs: ci
     runs-on: ubuntu-latest
     permissions: write-all
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - uses: ./.github/actions/semver
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-#  deploy:
-#    name: Deploy
-#    needs: semver
-#    runs-on: ubuntu-latest
-#    steps:
-#     - uses: actions/checkout@v4
-#     - uses: ./.github/actions/deploy
-#       with:
-#         service-account-key: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
-#         region: us-central1
-#         repository: authorizer
-#         service_name: authorizer
+  deploy:
+    name: Deploy
+    needs: semver
+    runs-on: ubuntu-latest
+    steps:
+     - uses: actions/checkout@v4
+     - uses: ./.github/actions/deploy
+       with:
+         service-account-key: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+         region: us-central1
+         repository: authorizer
+         service_name: authorizer
+         allow-public-access: 'true'
+         memory: '128Mi'
+         max-instances: '1'
