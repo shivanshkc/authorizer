@@ -19,6 +19,26 @@ inputs:
     description: |
       Name of the service that will be displayed in Cloud Run.
     required: true
+  allow-public-access:
+    description: |
+      Whether to allow public access to the service.
+    required: false
+    default: 'true'
+  memory:
+    description: |
+      Memory allocation for the service.
+    required: false
+    default: '128Mi'
+  max-instances:
+    description: |
+      Maximum number of instances.
+    required: false
+    default: '1'
+
+outputs:
+  url:
+    description: 'The URL of the deployed Cloud Run service'
+    value: ${{ steps.deploy.outputs.url }}
 
 runs:
   using: composite
@@ -33,11 +53,6 @@ runs:
     - name: Set up Google Cloud CLI.
       uses: google-github-actions/setup-gcloud@v2
 
-    # Verify Google Cloud CLI installation.
-    - name: Google Cloud CLI info.
-      run: gcloud info
-      shell: bash
-
     # Configure docker with credentials.
     - name: Configure docker with credentials.
       run: gcloud auth configure-docker ${{ inputs.region }}-docker.pkg.dev
@@ -51,38 +66,38 @@ runs:
     # Push the docker image.
     - name: Push the docker image.
       run: |
-        project_id=$(echo '${{ inputs.service-account-key }}' | jq -r .project_id)
+        set -euo pipefail
 
-        docker tag ${{ inputs.service_name }}:${{ github.sha }} \
-          ${{ inputs.region }}-docker.pkg.dev/$project_id/${{ inputs.repository }}/${{ inputs.service_name }}:${{ github.sha }}
+        IMAGE_URL="${{ inputs.region }}-docker.pkg.dev/${{ fromJson(inputs.service-account-key).project_id }}/${{ inputs.repository }}/${{ inputs.service_name }}:${{ github.sha }}"
 
-        docker push \
-          ${{ inputs.region }}-docker.pkg.dev/$project_id/${{ inputs.repository }}/${{ inputs.service_name }}:${{ github.sha }}
+        docker tag ${{ inputs.service_name }}:${{ github.sha }} "$IMAGE_URL"
+        docker push "$IMAGE_URL"
       shell: bash
 
-    # Deploy to cloud run cost-effectively.
-    - name: Deploy to cloud run.
-      run: |
-        project_id=$(echo '${{ inputs.service-account-key }}' | jq -r .project_id)
-        service_account_email=$(echo '${{ inputs.service-account-key }}' | jq -r .client_email)
+    # Deploy to cloud run using official action.
+    - name: Deploy to Cloud Run
+      id: deploy
+      uses: google-github-actions/deploy-cloudrun@v2
+      with:
+        service: ${{ inputs.service_name }}
+        region: ${{ inputs.region }}
+        image: ${{ inputs.region }}-docker.pkg.dev/${{ fromJson(inputs.service-account-key).project_id }}/${{ inputs.repository }}/${{ inputs.service_name }}:${{ github.sha }}
+        flags: |
+          --concurrency=80
+          --min-instances=0
+          --max-instances=${{ inputs.max-instances }}
+          --memory=${{ inputs.memory }}
+          --port=8080
+          --service-account=${{ fromJson(inputs.service-account-key).client_email }}
+          --timeout=600
+          --cpu-throttling
 
-        gcloud run deploy ${{ inputs.service_name }} \
-          --concurrency=80 \
-          --min-instances=0 \
-          --max-instances=1 \
-          --memory=128Mi \
-          --platform=managed \
-          --port=8080 \
-          --service-account=$service_account_email \
-          --timeout=600 \
-          --image=${{ inputs.region }}-docker.pkg.dev/$project_id/${{ inputs.repository }}/${{ inputs.service_name }}:${{ github.sha }} \
-          --cpu-throttling \
-          --region=${{ inputs.region }}
-      shell: bash
-
-    # Allow public access. Remove this step if public access is not intended.
-    - name: Allow public access.
+    # Allow public access if requested.
+    - name: Allow public access
+      if: ${{ inputs.allow-public-access == 'true' }}
       run: |
+        set -euo pipefail
+
         gcloud run services add-iam-policy-binding ${{ inputs.service_name }} \
           --region=${{ inputs.region }} \
           --member=allUsers \
