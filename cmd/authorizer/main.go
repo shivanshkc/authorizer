@@ -97,12 +97,15 @@ func connectDatabaseAndRunMigrations(ctx context.Context, conf config.Config) (*
 	defer func() { _, _ = migrationClient.Close() }()
 
 	// Run migrations.
-	if err := migrationClient.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
-		_ = database.Close()
+	if err := migrationClient.Up(); err != nil {
+		if errors.Is(err, migrate.ErrNoChange) {
+			slog.InfoContext(ctx, "No migrations to run")
+			return database, nil
+		}
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
 
-	slog.InfoContext(ctx, "Successfully ran database migrations")
+	slog.InfoContext(ctx, "Successfully completed database migrations")
 	return database, nil
 }
 
