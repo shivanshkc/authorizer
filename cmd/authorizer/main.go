@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -93,8 +94,10 @@ func connectDatabaseAndRunMigrations(ctx context.Context, conf config.Config) (*
 		return nil, fmt.Errorf("failed to create migration client: %w", err)
 	}
 
+	defer func() { _, _ = migrationClient.Close() }()
+
 	// Run migrations.
-	if err := migrationClient.Up(); err != nil {
+	if err := migrationClient.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		_ = database.Close()
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
