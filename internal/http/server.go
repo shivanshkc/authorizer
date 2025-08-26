@@ -43,7 +43,7 @@ func (s *Server) Start() error {
 // Shutdown initiates a graceful shutdown of the HTTP server.
 //
 // It does not return any errors, only logs them.
-func (s *Server) Shutdown() {
+func (s *Server) Shutdown(ctx context.Context) {
 	// In case the application initiates a shutdown before the server is even initialized.
 	// This may be because of a sudden SIGINT (ctrl+c).
 	if s.httpServer == nil {
@@ -51,7 +51,7 @@ func (s *Server) Shutdown() {
 		return
 	}
 
-	if err := s.httpServer.Shutdown(context.Background()); err != nil {
+	if err := s.httpServer.Shutdown(ctx); err != nil {
 		slog.Error("Error in Shutdown call", "err", err)
 	} else {
 		slog.Info("HTTP server shutdown successful")

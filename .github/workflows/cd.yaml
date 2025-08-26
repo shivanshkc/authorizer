@@ -53,10 +53,9 @@ jobs:
      - uses: actions/checkout@v4
      - uses: ./.github/actions/deploy
        with:
-         service-account-key: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
-         region: us-central1
-         repository: authorizer
-         service_name: authorizer
-         allow-public-access: 'true'
-         memory: '128Mi'
-         max-instances: '1'
+        server_ip: ${{ fromJSON(secrets.SSH_DETAILS).server_ip }}
+        ssh_private_key: ${{ fromJSON(secrets.SSH_DETAILS).ssh_private_key }}
+        ssh_username: ${{ fromJSON(secrets.SSH_DETAILS).ssh_username }}
+        service_name: authorizer
+        network_name: my-network
+        configs_yaml: ${{ secrets.CONFIGS_YAML }}
