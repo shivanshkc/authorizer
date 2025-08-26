@@ -31,7 +31,7 @@ If you don't already have them, find instructions [here](https://developers.goog
     ```
     make container
     ```
-6. Go to `http://localhost:8080/api/google?redirect_url=http://localhost:8080` to start Sign in with Google.
+6. Go to `http://localhost:8080/api/auth/google?redirect_url=http://localhost:8080` to start Sign in with Google.
 7. After signing in, you will be redirected to the specified `redirect_url` with an HTTP only cookie that contains the 
 access token.
 8. Now, if you open the network tab and go to `http://localhost:8080/api/check`, the response headers will contain the
