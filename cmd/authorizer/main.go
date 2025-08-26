@@ -54,16 +54,15 @@ func main() {
 	}
 
 	// Initialize the HTTP server.
-	server := &http.Server{
-		Config:     conf,
-		Middleware: middleware.Middleware{},
-		Handler:    handler.NewHandler(conf, gProvider, nil, repository.NewRepository(database)),
-	}
+	handlers := handler.NewHandler(conf, gProvider, nil, repository.NewRepository(database))
+	server := &http.Server{Config: conf, Middleware: middleware.Middleware{}, Handler: handlers}
 
+	// Start the server and unblock the main thread if it returns.
 	go func() {
 		if err := server.Start(); err != nil {
-			panic("error in server.Start call: " + err.Error())
+			slog.Error("Error in server.Start call:", "error", err)
 		}
+		cancel()
 	}()
 
 	<-ctx.Done()
