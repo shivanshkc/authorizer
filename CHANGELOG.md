@@ -1,3 +1,19 @@
+# [3.1.0](https://github.com/shivanshkc/authorizer/compare/v3.0.3...v3.1.0) (2025-08-26)
+
+
+### Bug Fixes
+
+* **ci:** no deployments for PRs, main.go ctx fix ([4dd6c19](https://github.com/shivanshkc/authorizer/commit/4dd6c191cf819e737aaa52591da5c85fd11a3aa7))
+* **ci:** use docker networks instead of port publishing ([329bafa](https://github.com/shivanshkc/authorizer/commit/329bafafcf3914df7163e584cfe2ddedf0d6bd05))
+* **core:** do not close database client when no migrations to run ([8beb3a7](https://github.com/shivanshkc/authorizer/commit/8beb3a736630289cee518c6756a6c16932c3ff28))
+* **core:** migration client cleanup ([7fc9dd7](https://github.com/shivanshkc/authorizer/commit/7fc9dd7c126f158aa19ca8abb1fa94efafa14e28))
+* **core:** run migrations as part of the service ([ace2aac](https://github.com/shivanshkc/authorizer/commit/ace2aacf69591056d1e401d6ec74f3dae98cd547))
+
+
+### Features
+
+* **ci:** add vm deployments ([7703839](https://github.com/shivanshkc/authorizer/commit/7703839d487b3b44d247673822e069a59a168117))
+
 ## [3.0.3](https://github.com/shivanshkc/authorizer/compare/v3.0.2...v3.0.3) (2025-08-23)
 
 
