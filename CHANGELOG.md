@@ -1,3 +1,12 @@
+## [3.1.1](https://github.com/shivanshkc/authorizer/compare/v3.1.0...v3.1.1) (2025-08-28)
+
+
+### Bug Fixes
+
+* **core:** redirect_url is optional, defaults to first in allowlist ([bf5089b](https://github.com/shivanshkc/authorizer/commit/bf5089b00b4ddbbc2b55928cc92a49daed2cc195))
+* **tests:** fix unit test race condition bug ([9658ce8](https://github.com/shivanshkc/authorizer/commit/9658ce891dfff8924f653cffcfa4896125adcd03))
+* **tests:** fix unit tests as per last commit ([1a81d13](https://github.com/shivanshkc/authorizer/commit/1a81d1334d34d42675908e3a5b9a3dfa547578f7))
+
 # [3.1.0](https://github.com/shivanshkc/authorizer/compare/v3.0.3...v3.1.0) (2025-08-26)
 
 
