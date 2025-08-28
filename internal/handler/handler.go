@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"slices"
 	"sync"
+	"time"
 
 	"github.com/shivanshkc/authorizer/internal/config"
 	"github.com/shivanshkc/authorizer/internal/repository"
@@ -20,6 +21,12 @@ type Handler struct {
 	// Its role is to defend against CSRF attacks as well as persist an OAuth flow's contextual info.
 	stateMap *sync.Map
 
+	// stateKeyExpiry is the max allowed time for a provider to invoke the callback API.
+	// If the provider is too late, the state key will be removed from the memory and the flow will fail.
+	//
+	// This is here as a struct field so it can be modified for testing purposes.
+	stateKeyExpiry time.Duration
+
 	googleProvider  oauth.Provider
 	discordProvider oauth.Provider
 
@@ -31,6 +38,7 @@ func NewHandler(config config.Config, google, discord oauth.Provider, repo repos
 	return &Handler{
 		config:          config,
 		stateMap:        &sync.Map{},
+		stateKeyExpiry:  time.Minute,
 		googleProvider:  google,
 		discordProvider: discord,
 		repo:            repo,
