@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -37,10 +38,23 @@ func (h *Handler) Auth(w http.ResponseWriter, r *http.Request) {
 	// Once authentication is done, the flow will end on this URL.
 	clientCallbackURL := r.URL.Query().Get("redirect_url")
 
+	// Default redirect URL.
+	if strings.TrimSpace(clientCallbackURL) == "" {
+		clientCallbackURL = h.config.AllowedRedirectURLs[0]
+	}
+
 	// Provider name validation.
 	if err := validateProvider(providerName); err != nil {
 		slog.ErrorContext(ctx, "invalid provider", "value", providerName, "error", err)
 		httputils.WriteErr(w, errutils.BadRequest().WithReasonErr(err))
+		return
+	}
+
+	// Select provider as per the given name.
+	provider := h.providerByName(providerName)
+	if provider == nil {
+		slog.ErrorContext(ctx, "provider is not implemented", "provider", providerName)
+		httputils.WriteErr(w, errUnsupportedProvider)
 		return
 	}
 
@@ -55,14 +69,6 @@ func (h *Handler) Auth(w http.ResponseWriter, r *http.Request) {
 	if !slices.Contains(h.config.AllowedRedirectURLs, clientCallbackURL) {
 		slog.ErrorContext(ctx, "request contains unknown redirect_url")
 		httputils.WriteErr(w, errUnknownRedirectURL)
-		return
-	}
-
-	// Select provider as per the given name.
-	provider := h.providerByName(providerName)
-	if provider == nil {
-		slog.ErrorContext(ctx, "provider is not implemented", "provider", providerName)
-		httputils.WriteErr(w, errUnsupportedProvider)
 		return
 	}
 
