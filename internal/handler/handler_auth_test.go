@@ -126,10 +126,6 @@ func TestHandler_Auth_DefaultRedirectURL(t *testing.T) {
 
 			// Create the mock handler.
 			mHandler := NewHandler(mConfig, mProvider, nil, nil)
-
-			// Changing the state key expiry time to a shorter time so the test doesn't take too long.
-			stateKeyExpiry = time.Second
-
 			// Invoke the method to test.
 			mHandler.Auth(w, r)
 
@@ -173,7 +169,7 @@ func TestHandler_Auth(t *testing.T) {
 	mHandler := NewHandler(mConfig, mProvider, nil, nil)
 
 	// Changing the state key expiry time to a shorter time so the test doesn't take too long.
-	stateKeyExpiry = time.Second
+	mHandler.stateKeyExpiry = time.Second
 
 	// Invoke the method to test.
 	mHandler.Auth(w, r)
@@ -208,7 +204,7 @@ func TestHandler_Auth(t *testing.T) {
 	require.Equal(t, allowedRedirectURL, insertedStateValue.ClientCallbackURL, "CCU does not match")
 
 	// State key must be deleted after expiry.
-	time.Sleep(stateKeyExpiry + 500*time.Millisecond)
+	time.Sleep(mHandler.stateKeyExpiry + 500*time.Millisecond)
 	_, found := mHandler.stateMap.Load(insertedStateKeyAny)
 	require.False(t, found, "State key was not deleted after expiry")
 
