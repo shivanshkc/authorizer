@@ -43,28 +43,25 @@ func TestHandler_Auth_Validations(t *testing.T) {
 			errSubstring:      errInvalidProvider.Error(),
 		},
 		{
-			name:              "Absent redirect_url",
-			inputProviderName: correctProviderName,
-			inputRedirectURL:  "",
-			errSubstring:      errInvalidCCU.Error(),
+			name:               "Too long redirect_url",
+			inputProviderName:  correctProviderName,
+			inputRedirectURL:   strings.Repeat("a", 201),
+			expectProviderCall: true,
+			errSubstring:       errInvalidCCU.Error(),
 		},
 		{
-			name:              "Too long redirect_url",
-			inputProviderName: correctProviderName,
-			inputRedirectURL:  strings.Repeat("a", 201),
-			errSubstring:      errInvalidCCU.Error(),
+			name:               "redirect_url is not a valid URL",
+			inputProviderName:  correctProviderName,
+			inputRedirectURL:   "invalid-url@@",
+			expectProviderCall: true,
+			errSubstring:       errInvalidCCU.Error(),
 		},
 		{
-			name:              "redirect_url is not a valid URL",
-			inputProviderName: correctProviderName,
-			inputRedirectURL:  "invalid-url@@",
-			errSubstring:      errInvalidCCU.Error(),
-		},
-		{
-			name:              "Allow list does not contain the redirect_url",
-			inputProviderName: correctProviderName,
-			inputRedirectURL:  allowedRedirectURL + "-random",
-			errSubstring:      errUnknownRedirectURL.Error(),
+			name:               "Allow list does not contain the redirect_url",
+			inputProviderName:  correctProviderName,
+			inputRedirectURL:   allowedRedirectURL + "-random",
+			expectProviderCall: true,
+			errSubstring:       errUnknownRedirectURL.Error(),
 		},
 		{
 			name:               "Unknown provider",
@@ -92,6 +89,64 @@ func TestHandler_Auth_Validations(t *testing.T) {
 			// Verifications.
 			require.Equal(t, http.StatusBadRequest, w.Code, "Expected 400 status code")
 			require.Contains(t, w.Body.String(), tc.errSubstring)
+			mProvider.AssertExpectations(t)
+		})
+	}
+}
+
+func TestHandler_Auth_DefaultRedirectURL(t *testing.T) {
+	// Test case for default redirect URL behavior when redirect_url is empty or whitespace.
+	const providerName = "google"
+	const mProviderAuthURL = "https://auth.google.com"
+	const allowedRedirectURL = "https://allowed.com"
+
+	mConfig := config.Config{AllowedRedirectURLs: []string{allowedRedirectURL}}
+
+	for _, tc := range []struct {
+		name             string
+		inputRedirectURL string
+	}{
+		{
+			name:             "Empty redirect_url defaults to first allowed URL",
+			inputRedirectURL: "",
+		},
+		{
+			name:             "Whitespace redirect_url defaults to first allowed URL",
+			inputRedirectURL: "   ",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create mock response writer and request.
+			w, r := createMockAuthWR(providerName, tc.inputRedirectURL)
+
+			// Setup mock provider.
+			mProvider := &mockProvider{}
+			mProvider.On("Name").Return(providerName).Once()
+			mProvider.On("GetAuthURL", r.Context(), mock.Anything, mock.Anything).Return(mProviderAuthURL).Once()
+
+			// Create the mock handler.
+			mHandler := NewHandler(mConfig, mProvider, nil, nil)
+
+			// Changing the state key expiry time to a shorter time so the test doesn't take too long.
+			stateKeyExpiry = time.Second
+
+			// Invoke the method to test.
+			mHandler.Auth(w, r)
+
+			// Verify the state map contains the default redirect URL.
+			var insertedStateValueAny any
+			mHandler.stateMap.Range(func(key, value any) bool {
+				insertedStateValueAny = value
+				return true
+			})
+
+			insertedStateValue, ok := insertedStateValueAny.(stateValue)
+			require.True(t, ok, "State value inserted in the State Map is of unexpected type")
+			require.Equal(t, allowedRedirectURL, insertedStateValue.ClientCallbackURL, "Expected default redirect URL")
+
+			// Verify response.
+			require.Equal(t, http.StatusFound, w.Code)
+			require.Equal(t, mProviderAuthURL, w.Header().Get("Location"))
 			mProvider.AssertExpectations(t)
 		})
 	}
