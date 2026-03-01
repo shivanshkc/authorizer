@@ -25,10 +25,11 @@ const accessTokenCookieName = "session"
 // Callback handles the provider's OAuth callback.
 func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	q := r.URL.Query()
 
 	// Obtain params from the request.
 	providerName := mux.Vars(r)["provider"]
-	stateKey, errAuth, code := r.URL.Query().Get("state"), r.URL.Query().Get("error"), r.URL.Query().Get("code")
+	stateKey, errAuth, code := q.Get("state"), q.Get("error"), q.Get("code")
 
 	// Validate the stateKey and obtain the corresponding stateValue.
 	sValue, err := loadAndDeleteStateValue(ctx, stateKey, h.stateMap)
@@ -53,22 +54,7 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Upsert user in the database asynchronously.
-	go func() {
-		// Do not use the request's context for this operation.
-		ctx := context.Background()
-		// The user record to store.
-		user := repository.User{
-			Email:      claims.Email,
-			GivenName:  claims.GivenName,
-			FamilyName: claims.FamilyName,
-			PictureURL: claims.Picture,
-		}
-
-		// Database call.
-		if err := h.repo.UpsertUser(ctx, user); err != nil {
-			slog.ErrorContext(ctx, "error in UpsertUser call", "error", err)
-		}
-	}()
+	go buildAndUpsertUser(claims, h.repo)
 
 	// Set the cookie.
 	http.SetCookie(w, &http.Cookie{
@@ -156,11 +142,13 @@ func validateCallbackInputs(ctx context.Context, providerName, code, errAuth str
 	return nil
 }
 
-// obtainAndDecodeToken fetches the correct provider implementation for the give name, uses the implementation to convert
-// the oauth code to the ID token (also requires the codeVerifier), then safely decodes the ID token to get claims.
+// obtainAndDecodeToken fetches the correct provider implementation for the give name, uses the implementation to
+// convert the "code" and "codeVerifier" to the ID token, then safely decodes the ID token to get claims.
 //
 // The returned error is safe to send to the client. More specific details about the error are logged.
-func (h *Handler) obtainAndDecodeToken(ctx context.Context, providerName, code, codeVerifier string) (oauth.Claims, string, error) {
+func (h *Handler) obtainAndDecodeToken(
+	ctx context.Context, providerName, code, codeVerifier string,
+) (oauth.Claims, string, error) {
 	// Get the required provider.
 	provider := h.providerByName(providerName)
 	if provider == nil {
@@ -183,4 +171,22 @@ func (h *Handler) obtainAndDecodeToken(ctx context.Context, providerName, code, 
 	}
 
 	return claims, token, nil
+}
+
+// buildAndUpsertUser build the user from the given claims and upserts it into the database.
+func buildAndUpsertUser(claims oauth.Claims, repo repository.Repository) {
+	// Do not use the request's context for this operation.
+	ctx := context.Background()
+	// The user record to store.
+	user := repository.User{
+		Email:      claims.Email,
+		GivenName:  claims.GivenName,
+		FamilyName: claims.FamilyName,
+		PictureURL: claims.Picture,
+	}
+
+	// Database call.
+	if err := repo.UpsertUser(ctx, user); err != nil {
+		slog.ErrorContext(ctx, "error in UpsertUser call", "error", err)
+	}
 }
