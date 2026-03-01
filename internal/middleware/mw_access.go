@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/shivanshkc/authorizer/internal/logger"
+
+	"github.com/google/uuid"
 )
 
 // AccessLogger middleware handles access logging.

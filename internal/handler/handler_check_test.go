@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/shivanshkc/authorizer/pkg/oauth"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestHandler_Check(t *testing.T) {

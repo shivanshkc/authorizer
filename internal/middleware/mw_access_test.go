@@ -7,9 +7,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/google/uuid"
-
 	"github.com/shivanshkc/authorizer/internal/logger"
+
+	"github.com/google/uuid"
 )
 
 func TestAccessLogger(t *testing.T) {

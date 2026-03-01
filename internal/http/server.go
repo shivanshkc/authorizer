@@ -8,11 +8,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gorilla/mux"
-
 	"github.com/shivanshkc/authorizer/internal/config"
 	"github.com/shivanshkc/authorizer/internal/handler"
 	"github.com/shivanshkc/authorizer/internal/middleware"
+
+	"github.com/gorilla/mux"
 )
 
 // Server is the HTTP server of this application.

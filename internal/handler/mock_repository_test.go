@@ -3,9 +3,9 @@ package handler
 import (
 	"context"
 
-	"github.com/stretchr/testify/mock"
-
 	"github.com/shivanshkc/authorizer/internal/repository"
+
+	"github.com/stretchr/testify/mock"
 )
 
 // mockRepository is a mock implementation of repository.Repository.

@@ -11,8 +11,8 @@ import (
 var (
 	errInvalidProvider = errors.New("provider must be upto 20 characters and must include only a-z, 0-9, - and _")
 	errInvalidCCU      = errors.New("redirect_url must be present, must be upto 200 characters and a valid url")
-	errInvalidState    = errors.New("state is malformed")
-	errInvalidCode     = errors.New("code is malformed")
+	errInvalidState    = errors.New("state is invalid")
+	errInvalidCode     = errors.New("code is invalid")
 )
 
 var (

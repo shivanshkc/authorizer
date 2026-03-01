@@ -12,12 +12,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shivanshkc/authorizer/internal/utils/httputils"
+
 	"github.com/lestrrat-go/httprc/v3"
 	"github.com/lestrrat-go/jwx/v3/jwk"
 	"github.com/lestrrat-go/jwx/v3/jwt"
 	"github.com/stretchr/testify/require"
-
-	"github.com/shivanshkc/authorizer/internal/utils/httputils"
 
 	_ "embed"
 )

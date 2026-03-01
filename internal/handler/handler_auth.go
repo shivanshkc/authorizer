@@ -11,11 +11,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/gorilla/mux"
-
 	"github.com/shivanshkc/authorizer/internal/utils/errutils"
 	"github.com/shivanshkc/authorizer/internal/utils/httputils"
+
+	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 )
 
 var (

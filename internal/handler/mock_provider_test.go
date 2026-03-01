@@ -3,9 +3,9 @@ package handler
 import (
 	"context"
 
-	"github.com/stretchr/testify/mock"
-
 	"github.com/shivanshkc/authorizer/pkg/oauth"
+
+	"github.com/stretchr/testify/mock"
 )
 
 // mockProvider is a mock implementation of the oauth.Provider interface.

@@ -8,11 +8,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/shivanshkc/authorizer/internal/config"
 	"github.com/shivanshkc/authorizer/internal/logger"
 	"github.com/shivanshkc/authorizer/internal/utils/errutils"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestMiddleware_Recovery(t *testing.T) {

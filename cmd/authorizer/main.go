@@ -11,8 +11,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/golang-migrate/migrate/v4"
-
 	"github.com/shivanshkc/authorizer/internal/config"
 	"github.com/shivanshkc/authorizer/internal/handler"
 	"github.com/shivanshkc/authorizer/internal/http"
@@ -20,6 +18,8 @@ import (
 	"github.com/shivanshkc/authorizer/internal/middleware"
 	"github.com/shivanshkc/authorizer/internal/repository"
 	"github.com/shivanshkc/authorizer/pkg/oauth"
+
+	"github.com/golang-migrate/migrate/v4"
 
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"

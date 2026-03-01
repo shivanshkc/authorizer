@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shivanshkc/authorizer/internal/config"
+
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-
-	"github.com/shivanshkc/authorizer/internal/config"
 )
 
 func TestHandler_Auth_Validations(t *testing.T) {
