@@ -25,4 +25,15 @@ type Repository interface {
 	Revoke(ctx context.Context, tokenHash string) error
 }
 
-type Claims struct{}
+// Claims is the info that can be put inside the access token.
+type Claims struct {
+	Iss string    `json:"iss"`
+	Exp time.Time `json:"exp"`
+	Iat time.Time `json:"iat"`
+	Sub string    `json:"sub"`
+
+	Email      string `json:"email"`
+	GivenName  string `json:"given_name"`
+	FamilyName string `json:"family_name"`
+	Picture    string `json:"picture"`
+}
