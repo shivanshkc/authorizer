@@ -206,7 +206,7 @@ func TestHandler_Callback(t *testing.T) {
 	// Claims returned by the DecodeToken method in case of no errors.
 	var claims = oauth.Claims{
 		Iss:        "mockIssuer",
-		Exp:        time.Now().Add(time.Hour),
+		Exp:        time.Now().Add(time.Hour).Unix(),
 		Email:      "mock@mock.com",
 		GivenName:  "mockGivenName",
 		FamilyName: "mockFamilyName",

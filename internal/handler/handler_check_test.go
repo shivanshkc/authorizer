@@ -21,7 +21,7 @@ func TestHandler_Check(t *testing.T) {
 	// Correct claims to be returned by the DecodeToken call in case of no errors.
 	claims := oauth.Claims{
 		Iss:        correctIssuer,
-		Exp:        time.Now().Add(time.Hour),
+		Exp:        time.Now().Add(time.Hour).Unix(),
 		Email:      "hey@hey.com",
 		GivenName:  "Gi",
 		FamilyName: "Hun",

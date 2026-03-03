@@ -2,7 +2,6 @@ package oauth
 
 import (
 	"context"
-	"time"
 )
 
 // Provider represents an OAuth provider.
@@ -33,8 +32,8 @@ type Provider interface {
 
 // Claims contain the user data retrieved from an OAuth provider.
 type Claims struct {
-	Iss string    `json:"iss"`
-	Exp time.Time `json:"exp"`
+	Iss string `json:"iss"`
+	Exp int64  `json:"exp"`
 
 	Email      string `json:"email"`
 	GivenName  string `json:"given_name"`

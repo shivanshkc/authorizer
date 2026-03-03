@@ -203,7 +203,7 @@ func TestGoogle_DecodeToken(t *testing.T) {
 		expiry:   expiresAt,
 		claims: Claims{
 			Iss:        googleIssuers[0],
-			Exp:        expiresAt,
+			Exp:        expiresAt.Unix(),
 			Email:      "mockEmail",
 			GivenName:  "mockGivenName",
 			FamilyName: "mockFamilyName",

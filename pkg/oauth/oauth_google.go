@@ -189,26 +189,15 @@ func (g *Google) DecodeToken(ctx context.Context, token string) (Claims, error) 
 		return Claims{}, fmt.Errorf("jwt has unknown issuer: %s", iss)
 	}
 
-	// Claims to return.
-	var claims Claims
+	// Marshal claims for convenient unmarshalling.
+	claimBytes, err := json.Marshal(parsed)
+	if err != nil {
+		return Claims{}, fmt.Errorf("failed to marshal claims: %w", err)
+	}
 
-	if err := parsed.Get("iss", &claims.Iss); err != nil {
-		return Claims{}, fmt.Errorf("failed to decode iss claim: %w", err)
-	}
-	if err := parsed.Get("exp", &claims.Exp); err != nil {
-		return Claims{}, fmt.Errorf("failed to decode exp claim: %w", err)
-	}
-	if err := parsed.Get("email", &claims.Email); err != nil {
-		return Claims{}, fmt.Errorf("failed to decode email claim: %w", err)
-	}
-	if err := parsed.Get("given_name", &claims.GivenName); err != nil {
-		return Claims{}, fmt.Errorf("failed to decode given_name claim: %w", err)
-	}
-	if err := parsed.Get("family_name", &claims.FamilyName); err != nil {
-		return Claims{}, fmt.Errorf("failed to decode family_name claim: %w", err)
-	}
-	if err := parsed.Get("picture", &claims.Picture); err != nil {
-		return Claims{}, fmt.Errorf("failed to decode picture claim: %w", err)
+	var claims Claims
+	if err := json.Unmarshal(claimBytes, &claims); err != nil {
+		return Claims{}, fmt.Errorf("failed to unmarshal claims: %w", err)
 	}
 
 	return claims, nil

@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -98,31 +99,15 @@ func (m *Manager) DecodeSafe(accessToken string) (Claims, error) {
 		return Claims{}, fmt.Errorf("failed to parse access token: %w", err)
 	}
 
-	var claims Claims
+	// Marshal claims for convenient unmarshalling.
+	claimBytes, err := json.Marshal(parsed)
+	if err != nil {
+		return Claims{}, fmt.Errorf("failed to marshal claims: %w", err)
+	}
 
-	if err := parsed.Get("iss", &claims.Iss); err != nil {
-		return Claims{}, fmt.Errorf("failed to decode iss claim: %w", err)
-	}
-	if err := parsed.Get("exp", &claims.Exp); err != nil {
-		return Claims{}, fmt.Errorf("failed to decode exp claim: %w", err)
-	}
-	if err := parsed.Get("iat", &claims.Iat); err != nil {
-		return Claims{}, fmt.Errorf("failed to decode iat claim: %w", err)
-	}
-	if err := parsed.Get("sub", &claims.Sub); err != nil {
-		return Claims{}, fmt.Errorf("failed to decode sub claim: %w", err)
-	}
-	if err := parsed.Get("email", &claims.Email); err != nil {
-		return Claims{}, fmt.Errorf("failed to decode email claim: %w", err)
-	}
-	if err := parsed.Get("given_name", &claims.GivenName); err != nil {
-		return Claims{}, fmt.Errorf("failed to decode given_name claim: %w", err)
-	}
-	if err := parsed.Get("family_name", &claims.FamilyName); err != nil {
-		return Claims{}, fmt.Errorf("failed to decode family_name claim: %w", err)
-	}
-	if err := parsed.Get("picture", &claims.Picture); err != nil {
-		return Claims{}, fmt.Errorf("failed to decode picture claim: %w", err)
+	var claims Claims
+	if err := json.Unmarshal(claimBytes, &claims); err != nil {
+		return Claims{}, fmt.Errorf("failed to unmarshal claims: %w", err)
 	}
 
 	return claims, nil
@@ -133,7 +118,7 @@ func createJwt(claims Claims, privateKey *ecdsa.PrivateKey) (string, error) {
 	t := jwt.New()
 
 	// The caller is not allowed to set their own iat.
-	claims.Iat = time.Now()
+	claims.Iat = time.Now().Unix()
 
 	// Set all claims.
 	errs := []error{
