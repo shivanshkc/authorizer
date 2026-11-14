@@ -2,6 +2,9 @@ package handler
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -15,9 +18,11 @@ import (
 	"github.com/shivanshkc/authorizer/internal/repository"
 	"github.com/shivanshkc/authorizer/internal/utils/errutils"
 	"github.com/shivanshkc/authorizer/pkg/oauth"
+	"github.com/shivanshkc/authorizer/pkg/tokener"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -292,6 +297,18 @@ func TestHandler_Callback(t *testing.T) {
 			mRepo := &mockRepository{}
 			mHandler.repo = mRepo
 
+			// Create mock token manager.
+			priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+			require.NoError(t, err)
+			privBytes, err := priv.Bytes()
+			require.NoError(t, err)
+			pubBytes, err := priv.PublicKey.Bytes()
+			require.NoError(t, err)
+
+			tm, err := tokener.NewManager("issuer.com", time.Hour, time.Hour*24, string(pubBytes), string(privBytes), mRepo)
+			require.NoError(t, err)
+			mHandler.tokenManager = tm
+
 			// Setup provider call expectations.
 			mProvider := &mockProvider{}
 			mHandler.googleProvider = mProvider
@@ -322,6 +339,8 @@ func TestHandler_Callback(t *testing.T) {
 					FamilyName: claims.FamilyName,
 					PictureURL: claims.Picture,
 				}).Return(nil).Once()
+				mRepo.On("Insert", mock.Anything, claims.Email, mock.Anything, mock.Anything).
+					Return(nil).Once()
 			}
 
 			// Invoke the method to test.
@@ -354,15 +373,29 @@ func TestHandler_Callback(t *testing.T) {
 
 			// Verify success behaviour.
 			require.Equal(t, parsed.Query().Get("provider"), knownProviderName)
-			// Get the cookie from the response.
-			cookie := w.Result().Cookies()[0]
-			// Verify cookie fields.
-			require.Equal(t, token, cookie.Value, "Cookie value does not match")
-			require.Equal(t, "/", cookie.Path, "Cookie path does not match")
-			require.NotEqual(t, 0, cookie.MaxAge, "Cookie max age does not match")
-			require.Equal(t, tc.inputHTTPS, cookie.Secure, "Cookie secure does not match")
-			require.True(t, cookie.HttpOnly, "Cookie httpOnly is not true")
-			require.Equal(t, http.SameSiteStrictMode, cookie.SameSite, "Cookie SameSite does not match")
+			// Get cookies from the response (access token and refresh token).
+			cookies := w.Result().Cookies()
+			require.Len(t, cookies, 2, "Expected 2 cookies to be set")
+
+			// Verify access token cookie fields.
+			accCookie := cookies[0]
+			require.Equal(t, accessTokenCookieName, accCookie.Name)
+			require.NotEmpty(t, accCookie.Value, "Access token cookie value must not be empty")
+			require.Equal(t, "/", accCookie.Path, "Cookie path does not match")
+			require.NotEqual(t, 0, accCookie.MaxAge, "Cookie max age does not match")
+			require.Equal(t, tc.inputHTTPS, accCookie.Secure, "Cookie secure does not match")
+			require.True(t, accCookie.HttpOnly, "Cookie httpOnly is not true")
+			require.Equal(t, http.SameSiteStrictMode, accCookie.SameSite, "Cookie SameSite does not match")
+
+			// Verify refresh token cookie fields.
+			refCookie := cookies[1]
+			require.Equal(t, refreshTokenCookieName, refCookie.Name)
+			require.NotEmpty(t, refCookie.Value, "Refresh token cookie value must not be empty")
+			require.Equal(t, "/api/refresh", refCookie.Path, "Cookie path does not match")
+			require.NotEqual(t, 0, refCookie.MaxAge, "Cookie max age does not match")
+			require.Equal(t, tc.inputHTTPS, refCookie.Secure, "Cookie secure does not match")
+			require.True(t, refCookie.HttpOnly, "Cookie httpOnly is not true")
+			require.Equal(t, http.SameSiteStrictMode, refCookie.SameSite, "Cookie SameSite does not match")
 		})
 	}
 }

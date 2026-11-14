@@ -125,7 +125,7 @@ func TestHandler_Auth_DefaultRedirectURL(t *testing.T) {
 			mProvider.On("GetAuthURL", r.Context(), mock.Anything, mock.Anything).Return(mProviderAuthURL).Once()
 
 			// Create the mock handler.
-			mHandler := NewHandler(mConfig, mProvider, nil, nil)
+			mHandler := NewHandler(mConfig, mProvider, nil, nil, nil)
 			// Invoke the method to test.
 			mHandler.Auth(w, r)
 
@@ -166,7 +166,7 @@ func TestHandler_Auth(t *testing.T) {
 	mProvider.On("GetAuthURL", r.Context(), mock.Anything, mock.Anything).Return(mProviderAuthURL).Once()
 
 	// Create the mock handler.
-	mHandler := NewHandler(mConfig, mProvider, nil, nil)
+	mHandler := NewHandler(mConfig, mProvider, nil, nil, nil)
 
 	// Changing the state key expiry time to a shorter time so the test doesn't take too long.
 	mHandler.stateKeyExpiry = time.Second

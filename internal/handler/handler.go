@@ -36,7 +36,12 @@ type Handler struct {
 }
 
 // NewHandler creates a new Handler instance.
-func NewHandler(config config.Config, google, discord oauth.Provider, repo repository.Repository) *Handler {
+func NewHandler(
+	config config.Config,
+	google, discord oauth.Provider,
+	repo repository.Repository,
+	tokenManager *tokener.Manager,
+) *Handler {
 	return &Handler{
 		config:          config,
 		stateMap:        &sync.Map{},
@@ -44,6 +49,7 @@ func NewHandler(config config.Config, google, discord oauth.Provider, repo repos
 		googleProvider:  google,
 		discordProvider: discord,
 		repo:            repo,
+		tokenManager:    tokenManager,
 	}
 }
 

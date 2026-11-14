@@ -2,15 +2,12 @@ package main
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -73,9 +70,13 @@ func main() {
 	repo := repository.NewRepository(database)
 	tokenManager, err := tokener.NewManager(issuer, accessTokenAge, refreshTokenAge,
 		conf.Auth.PublicKey, conf.Auth.PrivateKey, repo)
+	if err != nil {
+		cleanup(database, nil)
+		panic("failed to initialize token manager: " + err.Error())
+	}
 
 	// Initialize the HTTP server.
-	handlers := handler.NewHandler(conf, gProvider, nil, repo)
+	handlers := handler.NewHandler(conf, gProvider, nil, repo, tokenManager)
 	server := &http.Server{Config: conf, Middleware: middleware.Middleware{}, Handler: handlers}
 
 	// Start the server and unblock the main thread if it returns.

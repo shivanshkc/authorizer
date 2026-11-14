@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
-	"time"
 
 	"github.com/shivanshkc/authorizer/pkg/tokener"
 )
