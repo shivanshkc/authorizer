@@ -2,12 +2,15 @@ package main
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -17,7 +20,9 @@ import (
 	"github.com/shivanshkc/authorizer/internal/logger"
 	"github.com/shivanshkc/authorizer/internal/middleware"
 	"github.com/shivanshkc/authorizer/internal/repository"
+	"github.com/shivanshkc/authorizer/internal/utils/httputils"
 	"github.com/shivanshkc/authorizer/pkg/oauth"
+	"github.com/shivanshkc/authorizer/pkg/tokener"
 
 	"github.com/golang-migrate/migrate/v4"
 
@@ -26,9 +31,11 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
-// googleScopes for OAuth with Google.
-const googleScopes = "https://www.googleapis.com/auth/userinfo.email " +
-	"https://www.googleapis.com/auth/userinfo.profile"
+const (
+	// googleScopes for OAuth with Google.
+	googleScopes = "https://www.googleapis.com/auth/userinfo.email " +
+		"https://www.googleapis.com/auth/userinfo.profile"
+)
 
 func main() {
 	// Root application context.
@@ -39,7 +46,7 @@ func main() {
 	conf := config.Load()
 	logger.Init(os.Stdout, conf.Logger.Level, conf.Logger.Pretty)
 
-	// Setup the database.
+	// Set up the database.
 	database, err := connectDatabaseAndRunMigrations(ctx, conf)
 	if err != nil {
 		panic("failed to connect database and run migrations: " + err.Error())
@@ -53,8 +60,22 @@ func main() {
 		panic("failed to initialize google provider: " + err.Error())
 	}
 
+	issuer, err := httputils.DomainFromURL(conf.Application.BaseURL)
+	if err != nil {
+		cleanup(database, nil)
+		panic("failed to create issuer string: " + err.Error())
+	}
+
+	// Brevity.
+	accessTokenAge := time.Duration(conf.Auth.AccessTokenAgeSec) * time.Second
+	refreshTokenAge := time.Duration(conf.Auth.RefreshTokenAgeSec) * time.Second
+
+	repo := repository.NewRepository(database)
+	tokenManager, err := tokener.NewManager(issuer, accessTokenAge, refreshTokenAge,
+		conf.Auth.PublicKey, conf.Auth.PrivateKey, repo)
+
 	// Initialize the HTTP server.
-	handlers := handler.NewHandler(conf, gProvider, nil, repository.NewRepository(database))
+	handlers := handler.NewHandler(conf, gProvider, nil, repo)
 	server := &http.Server{Config: conf, Middleware: middleware.Middleware{}, Handler: handlers}
 
 	// Start the server and unblock the main thread if it returns.

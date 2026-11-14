@@ -11,6 +11,14 @@ type Config struct {
 		BaseURL string `yaml:"base_url"`
 	} `yaml:"application"`
 
+	Auth struct {
+		AccessTokenAgeSec  int64 `yaml:"access_token_age_sec"`
+		RefreshTokenAgeSec int64 `yaml:"refresh_token_age_sec"`
+
+		PublicKey  string `yaml:"public_key"`
+		PrivateKey string `yaml:"private_key"`
+	} `yaml:"auth"`
+
 	Database struct {
 		Addr     string `yaml:"addr"`
 		Username string `yaml:"username"`

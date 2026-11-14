@@ -11,16 +11,20 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/shivanshkc/authorizer/internal/repository"
 	"github.com/shivanshkc/authorizer/internal/utils/errutils"
 	"github.com/shivanshkc/authorizer/internal/utils/httputils"
 	"github.com/shivanshkc/authorizer/pkg/oauth"
-
-	"github.com/gorilla/mux"
+	"github.com/shivanshkc/authorizer/pkg/tokener"
 )
 
-// accessTokenCookieName is the name of the cookie that holds the access token (or the ID token).
-const accessTokenCookieName = "session"
+const (
+	// accessTokenCookieName is the name of the cookie that holds the access token.
+	accessTokenCookieName = "access_token"
+	// refreshTokenCookieName is the name of the cookie that holds the refresh token.
+	refreshTokenCookieName = "refresh_token"
+)
 
 // Callback handles the provider's OAuth callback.
 func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
@@ -47,29 +51,37 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Convert the oauth code to ID token, and then subsequently to claims, for the given provider.
-	claims, token, err := h.obtainAndDecodeToken(ctx, providerName, code, sValue.CodeVerifier)
+	oAuthClaims, err := h.obtainAndDecodeToken(ctx, providerName, code, sValue.CodeVerifier)
 	if err != nil {
 		errorRedirect(w, err.Error(), sValue.ClientCallbackURL)
 		return
 	}
 
+	// Prepare claims to generate our own custom token.
+	claims := makeClaims(oAuthClaims)
 	// Upsert user in the database asynchronously.
 	go buildAndUpsertUser(claims, h.repo)
 
-	// Set the cookie.
-	http.SetCookie(w, &http.Cookie{
-		Name:  accessTokenCookieName,
-		Value: token,
-		Path:  "/",
-		// This will be required if Authorizer needs to be used with multiple subdomains.
-		Domain: "",
-		// The cookie expires at the same time as the token.
-		MaxAge: int(claims.Exp - time.Now().Unix()),
-		// Use secure mode when the application is running over HTTPS.
-		Secure:   strings.HasPrefix(h.config.Application.BaseURL, "https://"),
-		HttpOnly: true,
-		SameSite: http.SameSiteStrictMode,
-	})
+	// Generate a new access-refresh token pair.
+	accessTokenDetails, refreshTokenDetails, err := h.tokenManager.Login(ctx, claims)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to generate access-refresh token pair", "error", err)
+		errorRedirect(w, "failed to generate tokens", sValue.ClientCallbackURL)
+		return
+	}
+
+	// Required to calculate accurate max-age.
+	now := time.Now().Unix()
+	accTokenMaxAge, refTokenMaxAge := int(accessTokenDetails.ExpiresAt-now), int(refreshTokenDetails.ExpiresAt-now)
+	// Use secure mode only if the application is running over HTTPS.
+	isSecureCookie := strings.HasPrefix(h.config.Application.BaseURL, "https://")
+
+	// Set access token cookie.
+	http.SetCookie(w, makeTokenCookie(accessTokenCookieName, accessTokenDetails.Token, "/",
+		accTokenMaxAge, isSecureCookie))
+	// Set refresh token cookie.
+	http.SetCookie(w, makeTokenCookie(refreshTokenCookieName, refreshTokenDetails.Token, "/api/refresh",
+		refTokenMaxAge, isSecureCookie))
 
 	// Success redirect URL.
 	redirectURL := fmt.Sprintf("%s?provider=%s", sValue.ClientCallbackURL, providerName)
@@ -148,33 +160,33 @@ func validateCallbackInputs(ctx context.Context, providerName, code, errAuth str
 // The returned error is safe to send to the client. More specific details about the error are logged.
 func (h *Handler) obtainAndDecodeToken(
 	ctx context.Context, providerName, code, codeVerifier string,
-) (oauth.Claims, string, error) {
+) (oauth.Claims, error) {
 	// Get the required provider.
 	provider := h.providerByName(providerName)
 	if provider == nil {
 		slog.ErrorContext(ctx, "callback from unknown provider", "provider", providerName)
-		return oauth.Claims{}, "", errutils.InternalServerError()
+		return oauth.Claims{}, errutils.InternalServerError()
 	}
 
 	// Convert the code sent by the provider to an access token.
 	token, err := provider.TokenFromCode(ctx, code, codeVerifier)
 	if err != nil {
 		slog.ErrorContext(ctx, "error in TokenFromCode call", "error", err)
-		return oauth.Claims{}, "", errutils.InternalServerError()
+		return oauth.Claims{}, errutils.InternalServerError()
 	}
 
 	// Decode token to obtain claims. This also verifies the token.
 	claims, err := provider.DecodeToken(ctx, token)
 	if err != nil {
 		slog.ErrorContext(ctx, "error in DecodeToken call", "error", err)
-		return oauth.Claims{}, "", errutils.InternalServerError()
+		return oauth.Claims{}, errutils.InternalServerError()
 	}
 
-	return claims, token, nil
+	return claims, nil
 }
 
 // buildAndUpsertUser build the user from the given claims and upserts it into the database.
-func buildAndUpsertUser(claims oauth.Claims, repo repository.Repository) {
+func buildAndUpsertUser(claims tokener.Claims, repo repository.Repository) {
 	// Do not use the request's context for this operation.
 	ctx := context.Background()
 	// The user record to store.
@@ -188,5 +200,21 @@ func buildAndUpsertUser(claims oauth.Claims, repo repository.Repository) {
 	// Database call.
 	if err := repo.UpsertUser(ctx, user); err != nil {
 		slog.ErrorContext(ctx, "error in UpsertUser call", "error", err)
+	}
+}
+
+func makeTokenCookie(name, token, path string, maxAge int, secure bool) *http.Cookie {
+	return &http.Cookie{
+		Name:  name,
+		Value: token,
+		Path:  path,
+		// This will be required if Authorizer needs to be used with multiple subdomains.
+		Domain: "",
+		// The cookie expires at the same time as the token.
+		MaxAge: maxAge,
+		// Use secure mode when the application is running over HTTPS.
+		Secure:   secure,
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
 	}
 }

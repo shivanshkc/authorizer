@@ -5,6 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"time"
+
+	"github.com/shivanshkc/authorizer/pkg/tokener"
 )
 
 // User represents a single user in the database.
@@ -21,6 +24,8 @@ type User struct {
 // Repository encapsulates all operations available on the database.
 type Repository interface {
 	UpsertUser(ctx context.Context, user User) error
+
+	tokener.Repository
 }
 
 // repository implements Repository.

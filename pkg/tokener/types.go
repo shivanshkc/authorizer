@@ -25,6 +25,12 @@ type Repository interface {
 	Revoke(ctx context.Context, tokenHash string) error
 }
 
+// TokenDetails may be used to represent both an access token and a refresh token.
+type TokenDetails struct {
+	Token     string
+	ExpiresAt int64
+}
+
 // Claims is the info that can be put inside the access token.
 type Claims struct {
 	Iss string `json:"iss"`

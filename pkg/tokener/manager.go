@@ -3,6 +3,7 @@ package tokener
 import (
 	"context"
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -16,7 +17,9 @@ import (
 
 // Manager encapsulates methods required to create and manage access-refresh token pairs.
 type Manager struct {
-	refreshTokenExpiry time.Duration
+	issuer           string
+	accessTokenLife  time.Duration
+	refreshTokenLife time.Duration
 
 	publicKey  *ecdsa.PublicKey
 	privateKey *ecdsa.PrivateKey
@@ -26,22 +29,39 @@ type Manager struct {
 
 // NewManager returns a new instance of the manager.
 func NewManager(
-	refreshTokenExpiry time.Duration, publicKey *ecdsa.PublicKey, privateKey *ecdsa.PrivateKey, repo Repository,
-) *Manager {
-	return &Manager{
-		refreshTokenExpiry: refreshTokenExpiry,
-		publicKey:          publicKey,
-		privateKey:         privateKey,
-		repo:               repo,
+	issuer string, accessTokenLife, refreshTokenLife time.Duration,
+	rawPublicKey, rawPrivateKey string, repo Repository,
+) (*Manager, error) {
+	privateKey, err := ecdsa.ParseRawPrivateKey(elliptic.P256(), []byte(rawPrivateKey))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse private key: %w", err)
 	}
+
+	publicKey, err := ecdsa.ParseUncompressedPublicKey(elliptic.P256(), []byte(rawPublicKey))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse public key: %w", err)
+	}
+
+	return &Manager{
+		issuer:           issuer,
+		accessTokenLife:  accessTokenLife,
+		refreshTokenLife: refreshTokenLife,
+		publicKey:        publicKey,
+		privateKey:       privateKey,
+		repo:             repo,
+	}, nil
 }
 
 // Login returns a new access-refresh token pair for the given claims.
-func (m *Manager) Login(ctx context.Context, claims Claims) (string, string, error) {
+//
+// The "iss", "iat" and "exp" claims are set internally by this function.
+func (m *Manager) Login(ctx context.Context, claims Claims) (TokenDetails, TokenDetails, error) {
+	claims.Iss = m.issuer
+
 	// Access token is a signed JWT.
-	accessToken, err := createJwt(claims, m.privateKey)
+	accessTokenDetails, err := m.createJwt(claims)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to create access token: %w", err)
+		return TokenDetails{}, TokenDetails{}, fmt.Errorf("failed to create access token: %w", err)
 	}
 
 	// Refresh token is opaque.
@@ -49,37 +69,37 @@ func (m *Manager) Login(ctx context.Context, claims Claims) (string, string, err
 	refreshTokenHash := sha256Hex(refreshToken)
 
 	// Expiry time of the refresh token.
-	expiresAt := time.Now().Add(m.refreshTokenExpiry)
+	expiresAt := time.Now().Add(m.refreshTokenLife)
 
 	if err := m.repo.Insert(ctx, claims.Sub, refreshTokenHash, expiresAt); err != nil {
-		return "", "", fmt.Errorf("failed to insert refresh token: %w", err)
+		return TokenDetails{}, TokenDetails{}, fmt.Errorf("failed to insert refresh token: %w", err)
 	}
 
-	return accessToken, refreshToken, nil
+	return accessTokenDetails, TokenDetails{Token: refreshToken, ExpiresAt: expiresAt.Unix()}, nil
 }
 
 // Refresh checks if the given refreshToken is valid (not revoked + not expired). If valid, a new access-refresh token
 // pair is issued, otherwise all refresh tokens for the user are revoked.
-func (m *Manager) Refresh(ctx context.Context, claims Claims, refreshToken string) (string, string, error) {
+func (m *Manager) Refresh(ctx context.Context, claims Claims, refreshToken string) (TokenDetails, TokenDetails, error) {
 	newRefreshToken := uuid.NewString()
 	oldRefreshTokenHash := sha256Hex(refreshToken)
 	newRefreshTokenHash := sha256Hex(newRefreshToken)
 
 	// Expiry time of the refresh token.
-	expiresAt := time.Now().Add(m.refreshTokenExpiry)
+	expiresAt := time.Now().Add(m.refreshTokenLife)
 
 	// This call will fail if the refresh token is revoked or expired.
 	if err := m.repo.Refresh(ctx, oldRefreshTokenHash, newRefreshTokenHash, expiresAt); err != nil {
-		return "", "", fmt.Errorf("failed to rotate refresh token: %w", err)
+		return TokenDetails{}, TokenDetails{}, fmt.Errorf("failed to rotate refresh token: %w", err)
 	}
 
 	// Access token is a signed JWT.
-	accessToken, err := createJwt(claims, m.privateKey)
+	accessTokenDetails, err := m.createJwt(claims)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to create access token: %w", err)
+		return TokenDetails{}, TokenDetails{}, fmt.Errorf("failed to create access token: %w", err)
 	}
 
-	return accessToken, newRefreshToken, nil
+	return accessTokenDetails, TokenDetails{Token: newRefreshToken, ExpiresAt: expiresAt.Unix()}, nil
 }
 
 // Logout revokes the given refresh token.
@@ -113,12 +133,14 @@ func (m *Manager) DecodeSafe(accessToken string) (Claims, error) {
 	return claims, nil
 }
 
-// createJwt creates a JWT with the given claims, and signs it using the given private key.
-func createJwt(claims Claims, privateKey *ecdsa.PrivateKey) (string, error) {
+// createJwt creates a signed JWT with the given claims.
+func (m *Manager) createJwt(claims Claims) (TokenDetails, error) {
 	t := jwt.New()
+	now := time.Now()
 
-	// The caller is not allowed to set their own iat.
-	claims.Iat = time.Now().Unix()
+	claims.Iss = m.issuer
+	claims.Iat = now.Unix()
+	claims.Exp = now.Add(m.accessTokenLife).Unix()
 
 	// Set all claims.
 	errs := []error{
@@ -135,17 +157,17 @@ func createJwt(claims Claims, privateKey *ecdsa.PrivateKey) (string, error) {
 	// If any Set operation failed, return error.
 	for _, err := range errs {
 		if err != nil {
-			return "", fmt.Errorf("error while setting claim value: %w", err)
+			return TokenDetails{}, fmt.Errorf("error while setting claim value: %w", err)
 		}
 	}
 
 	// Sign using the private key.
-	signed, err := jwt.Sign(t, jwt.WithKey(jwa.ES256(), privateKey))
+	signed, err := jwt.Sign(t, jwt.WithKey(jwa.ES256(), m.privateKey))
 	if err != nil {
-		return "", fmt.Errorf("failed to sign jwt: %w", err)
+		return TokenDetails{}, fmt.Errorf("failed to sign jwt: %w", err)
 	}
 
-	return string(signed), nil
+	return TokenDetails{Token: string(signed), ExpiresAt: claims.Exp}, nil
 }
 
 func sha256Hex(data string) string {

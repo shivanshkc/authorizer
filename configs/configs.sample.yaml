@@ -3,6 +3,12 @@ application:
   name: authorizer
   base_url: http://localhost:8080
 
+auth:
+  access_token_age_sec: 600 # 10 minutes
+  refresh_token_age_sec: 2592000 # 30 days
+  public_key: xyz
+  private_key: xyz
+
 database:
   addr: localhost:5432
   username: postgres

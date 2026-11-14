@@ -11,6 +11,7 @@ import (
 	"github.com/shivanshkc/authorizer/internal/utils/errutils"
 	"github.com/shivanshkc/authorizer/internal/utils/httputils"
 	"github.com/shivanshkc/authorizer/pkg/oauth"
+	"github.com/shivanshkc/authorizer/pkg/tokener"
 )
 
 // Handler encapsulates all REST handlers.
@@ -30,7 +31,8 @@ type Handler struct {
 	googleProvider  oauth.Provider
 	discordProvider oauth.Provider
 
-	repo repository.Repository
+	repo         repository.Repository
+	tokenManager *tokener.Manager
 }
 
 // NewHandler creates a new Handler instance.
